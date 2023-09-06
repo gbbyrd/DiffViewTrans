@@ -11,6 +11,18 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Train Autoencoder",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--base", "configs/autoencoder/autoencoder_kl_64x64x3_fixed_trans_exp.yaml",
+                "-t", "--gpus", "0,"
+            ]
         }
     ]
 }
