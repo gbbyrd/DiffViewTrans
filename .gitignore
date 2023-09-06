@@ -1,0 +1,12 @@
+logs/
+*.txt
+data/
+taming/modules/autoencoder/lpips/vgg.pth
+assets/
+cvusa*/
+checkpoints/
+dayton*/
+src/
+taming/
+test*.py
+__pycache__/
