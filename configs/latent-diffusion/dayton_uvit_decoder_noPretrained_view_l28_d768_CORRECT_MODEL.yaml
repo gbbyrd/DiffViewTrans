@@ -46,7 +46,7 @@ model:
       params:
         embed_dim: 3
         n_embed: 8192
-        ckpt_path: checkpoints/best.ckpt
+        # ckpt_path: /home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/custom_vqgan/epoch=000079.ckpt
         ddconfig:
           double_z: false
           z_channels: 3
@@ -84,15 +84,15 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 16
+    batch_size: 1
     num_workers: 5
     wrap: False
     train:
-      target: ldm.data.dayton.DaytonTrain  #  PUT YOUR DATASET 
+      target: ldm.datasets.custom_datasets.FixedTransDatasetTrain  #  PUT YOUR DATASET 
       params:
         size: 256
     validation:
-      target: ldm.data.dayton.DaytonVal  #  PUT YOUR DATASET 
+      target: ldm.datasets.custom_datasets.FixedTransDatasetVal  #  PUT YOUR DATASET 
       params:
         size: 256
 

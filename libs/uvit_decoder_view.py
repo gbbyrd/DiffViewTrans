@@ -216,7 +216,7 @@ class PatchEmbed(nn.Module):
 class UViT(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4.,
                  qkv_bias=False, qk_scale=None, norm_layer=nn.LayerNorm, mlp_time_embed=False, num_classes=-1,
-                 use_checkpoint=False, conv=True, skip=True,last_only=False):
+                 use_checkpoint=False, conv=True, skip=True,last_only=False, translation_distance_dim=None):
         super().__init__()
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
         self.num_classes = num_classes
@@ -240,6 +240,15 @@ class UViT(nn.Module):
             self.extras = 1
 
         self.pos_embed = nn.Parameter(torch.zeros(1, self.extras + num_patches, embed_dim))
+
+        if translation_distance_dim is not None:
+            self.translation_embed = nn.Sequential(
+                nn.Linear(translation_distance_dim, embed_dim),
+                nn.SiLU(),
+                nn.Linear(embed_dim, 4 * embed_dim),
+                nn.SiLU(),
+                nn.Linear(4 * embed_dim, embed_dim)
+            )
 
         self.encoder = nn.ModuleList([
             Decoder_Block(
@@ -278,15 +287,24 @@ class UViT(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed'}
 
-    def forward(self, x, timesteps=None, context=None, y=None, **kwargs):
+    def forward(self, x, timesteps=None, context=None, translation_distance=None, y=None, **kwargs):
         x = self.patch_embed(x)
         B, L, D = x.shape
         condition = self.condition_embed(context)
 
         time_token = self.time_embed(timestep_embedding(timesteps, self.embed_dim))
         time_token = time_token.unsqueeze(dim=1)
+
         x = torch.cat((time_token, x), dim=1)
         condition = torch.cat((time_token,condition),dim=1)
+
+        if translation_distance is not None:
+            translation_token = self.translation_embed(translation_distance)
+
+            # we should include in both the condition and the x
+            x = torch.cat((translation_token, x),dim=1)
+            condition = torch.cat((translation_token, condition),dim=1)
+
         if y is not None:
             label_emb = self.label_emb(y)
             label_emb = label_emb.unsqueeze(dim=1)

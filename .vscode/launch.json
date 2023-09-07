@@ -20,7 +20,20 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args":[
-                "--base", "configs/autoencoder/custom_vqgan.yaml",
+                // "--base", "configs/autoencoder/custom_vqgan.yaml",
+                "--base", "configs/autoencoder/vqgan_aerial.yaml",
+                "-t", "--gpus", "0,"
+            ]
+        },
+        {
+            "name": "Train Diffusion Model",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--base", "configs/latent-diffusion/dayton_uvit_decoder_noPretrained_view_l28_d768_CORRECT_MODEL.yaml",
                 "-t", "--gpus", "0,"
             ]
         }

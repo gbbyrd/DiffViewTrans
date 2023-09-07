@@ -542,12 +542,12 @@ if __name__ == "__main__":
     model = instantiate_from_config(config.model)
 
     # load checkpoint
-    ckpt = torch.load('/home/nianyli/Desktop/code/thesis/TransDiffusion/logs/2023-09-06T14-30-54_autoencoder_kl_64x64x3_fixed_trans_exp/checkpoints/epoch=000079.ckpt',
+    ckpt = torch.load('/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/custom_vqgan/last.ckpt',
                       map_location='cuda:0')
     model.load_state_dict(ckpt['state_dict'])
 
     model.eval()
-    image_folder_path = '/home/nianyli/Desktop/code/thesis/TransDiffusion/data/3D_trans_diff_v1_256'
+    image_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256'
     images = glob.glob(image_folder_path+'/*.png')
 
     while 1:
