@@ -20,7 +20,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args":[
-                "--base", "configs/autoencoder/autoencoder_kl_64x64x3_fixed_trans_exp.yaml",
+                "--base", "configs/autoencoder/custom_vqgan.yaml",
                 "-t", "--gpus", "0,"
             ]
         }
