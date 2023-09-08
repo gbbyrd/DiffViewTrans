@@ -26,14 +26,26 @@
             ]
         },
         {
-            "name": "Train Diffusion Model",
+            "name": "Train Diffusion Model Fixed",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args":[
-                "--base", "configs/latent-diffusion/dayton_uvit_decoder_noPretrained_view_l28_d768_CORRECT_MODEL.yaml",
+                "--base", "configs/latent-diffusion/fixed_view_translation_config.yaml",
+                "-t", "--gpus", "0,"
+            ]
+        },
+        {
+            "name": "Train Diffusion Model 3D",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
                 "-t", "--gpus", "0,"
             ]
         }

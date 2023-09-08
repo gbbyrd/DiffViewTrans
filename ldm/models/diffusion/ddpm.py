@@ -71,6 +71,7 @@ class DDPM(pl.LightningModule):
                  use_positional_encodings=False,
                  learn_logvar=False,
                  logvar_init=0.,
+                 translation_label=None
                  ):
         super().__init__()
         assert parameterization in ["eps", "x0"], 'currently only supporting "eps" and "x0"'
@@ -112,6 +113,8 @@ class DDPM(pl.LightningModule):
         self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,))
         if self.learn_logvar:
             self.logvar = nn.Parameter(self.logvar, requires_grad=True)
+
+        self.translation_label = translation_label
 
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
@@ -474,6 +477,8 @@ class LatentDiffusion(DDPM):
             self.init_from_ckpt(ckpt_path, ignore_keys)
             self.restarted_from_ckpt = True
 
+        # grayson added this
+
     def make_cond_schedule(self, ):
         self.cond_ids = torch.full(size=(self.num_timesteps,), fill_value=self.num_timesteps - 1, dtype=torch.long)
         ids = torch.round(torch.linspace(0, self.num_timesteps - 1, self.num_timesteps_cond)).long()
@@ -660,7 +665,7 @@ class LatentDiffusion(DDPM):
         return fold, unfold, normalization, weighting
 
     @torch.no_grad()
-    def get_input(self, batch, k, return_first_stage_outputs=False, force_c_encode=False,
+    def get_input(self, batch, k, translation_label=None, return_first_stage_outputs=False, force_c_encode=False,
                   cond_key=None, return_original_cond=False, bs=None):
         x = super().get_input(batch, k)
         if bs is not None:
@@ -714,6 +719,15 @@ class LatentDiffusion(DDPM):
             out.extend([x, xrec])
         if return_original_cond:
             out.append(xc)
+
+        # if a translation label is passed extract it, otherwise make the label
+        # None
+        if translation_label:
+            translation_label = batch['location']
+            out.append(translation_label)
+        else:
+            out.append(None)
+
         return out
 
     @torch.no_grad()
@@ -885,11 +899,11 @@ class LatentDiffusion(DDPM):
 
 
     def shared_step(self, batch, **kwargs):
-        x, c = self.get_input(batch, self.first_stage_key)
-        loss = self(x, c)
+        x, c, translation_label = self.get_input(batch, self.first_stage_key, self.translation_label) # need to add them
+        loss = self(x, c, translation_label)
         return loss
 
-    def forward(self, x, c, *args, **kwargs):
+    def forward(self, x, c, translation_label=None, *args, **kwargs):
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None
@@ -900,7 +914,7 @@ class LatentDiffusion(DDPM):
             if self.shorten_cond_schedule:  # TODO: drop this option
                 tc = self.cond_ids[t].to(self.device)
                 c = self.q_sample(x_start=c, t=tc, noise=torch.randn_like(c.float()))
-        return self.p_losses(x, c, t, *args, **kwargs)
+        return self.p_losses(x, c, t, translation_label, *args, **kwargs)
 
     def _rescale_annotations(self, bboxes, crop_coordinates):  # TODO: move to dataset
         def rescale_bbox(bbox):
@@ -912,7 +926,7 @@ class LatentDiffusion(DDPM):
 
         return [rescale_bbox(b) for b in bboxes]
 
-    def apply_model(self, x_noisy, t, cond, return_ids=False):
+    def apply_model(self, x_noisy, t, cond, translation_label=None, return_ids=False):
 
         if isinstance(cond, dict):
             # hybrid case, cond is exptected to be a dict
@@ -1008,6 +1022,8 @@ class LatentDiffusion(DDPM):
             x_recon = fold(o) / normalization
 
         else:
+            if translation_label is not None:
+                cond['c_concat'] = [translation_label]
             x_recon = self.model(x_noisy, t, **cond)
 
         if isinstance(x_recon, tuple) and not return_ids:
@@ -1033,10 +1049,10 @@ class LatentDiffusion(DDPM):
         kl_prior = normal_kl(mean1=qt_mean, logvar1=qt_log_variance, mean2=0.0, logvar2=0.0)
         return mean_flat(kl_prior) / np.log(2.0)
 
-    def p_losses(self, x_start, cond, t, noise=None):
+    def p_losses(self, x_start, cond, t, translation_label=None, noise=None):
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_output = self.apply_model(x_noisy, t, cond)
+        model_output = self.apply_model(x_noisy, t, cond, translation_label=translation_label)
 
         loss_dict = {}
         prefix = 'train' if self.training else 'val'
@@ -1428,7 +1444,7 @@ class DiffusionWrapper(pl.LightningModule):
         super().__init__()
         self.diffusion_model = instantiate_from_config(diff_model_config)
         self.conditioning_key = conditioning_key
-        assert self.conditioning_key in [None, 'concat', 'crossattn', 'hybrid', 'adm']
+        assert self.conditioning_key in [None, 'concat', 'crossattn', 'hybrid', 'adm', 'conditional_translation']
 
     def forward(self, x, t, c_concat: list = None, c_crossattn: list = None):
         if self.conditioning_key is None:
@@ -1446,6 +1462,10 @@ class DiffusionWrapper(pl.LightningModule):
         elif self.conditioning_key == 'adm':
             cc = c_crossattn[0]
             out = self.diffusion_model(x, t, y=cc)
+        elif self.conditioning_key == 'conditional_translation':
+            cc = torch.cat(c_crossattn, 1)
+            trans_label = torch.cat(c_concat, 1)
+            out = self.diffusion_model(x, t, translation_label=trans_label, context=cc)
         else:
             raise NotImplementedError()
 

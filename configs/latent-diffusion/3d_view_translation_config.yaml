@@ -16,7 +16,7 @@ model:
     cond_stage_trainable: True
     second_pretrained: False
     second_code: False
-    # conditioning_key: conditional_translation
+    conditioning_key: conditional_translation
     
 
     scheduler_config: # 10000 warmup steps
@@ -42,7 +42,7 @@ model:
         mlp_time_embed: False
         use_checkpoint: False
         conv: False
-        # translation_distance_dim: 4
+        translation_distance_dim: 4
 
     first_stage_config:
       target: ldm.models.autoencoder.VQModelInterface

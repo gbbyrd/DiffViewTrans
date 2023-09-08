@@ -238,7 +238,9 @@ class UViT(nn.Module):
             self.extras = 2
         else:
             self.extras = 1
-
+        if translation_distance_dim is not None:
+            self.extras = 2
+        
         self.pos_embed = nn.Parameter(torch.zeros(1, self.extras + num_patches, embed_dim))
 
         if translation_distance_dim is not None:
@@ -287,7 +289,7 @@ class UViT(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed'}
 
-    def forward(self, x, timesteps=None, context=None, translation_distance=None, y=None, **kwargs):
+    def forward(self, x, timesteps=None, context=None, translation_label=None, y=None, **kwargs):
         x = self.patch_embed(x)
         B, L, D = x.shape
         condition = self.condition_embed(context)
@@ -298,19 +300,23 @@ class UViT(nn.Module):
         x = torch.cat((time_token, x), dim=1)
         condition = torch.cat((time_token,condition),dim=1)
 
-        if translation_distance is not None:
-            translation_token = self.translation_embed(translation_distance)
+        if translation_label is not None:
+            translation_token = self.translation_embed(translation_label)
 
-            # we should include in both the condition and the x
+            # not sure whether to include in both input and condition..
             x = torch.cat((translation_token, x),dim=1)
-            condition = torch.cat((translation_token, condition),dim=1)
+            # condition = torch.cat((translation_token, condition),dim=1)
 
         if y is not None:
             label_emb = self.label_emb(y)
             label_emb = label_emb.unsqueeze(dim=1)
             x = torch.cat((label_emb, x), dim=1)
         x = x + self.pos_embed
-        condition = condition + self.pos_embed
+        # ensure that the positional embedding fix the condition in the event
+        # that the condition is not the same size as the input (when you concat
+        # the spatial information to the input but not the condition)
+        condition_len = condition.shape[1]
+        condition = condition + (self.pos_embed[:, :condition_len, :]) 
 
         skips = []
         for blk in self.encoder:

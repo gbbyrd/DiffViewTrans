@@ -3,13 +3,16 @@ import cv2
 import glob
 import json
 
+import numpy as np
 from torch.utils.data import Dataset
 # from torchvision import transforms
 
 class FixedTransDatasetBase(Dataset):
     def __init__(self, **kwargs):
-        self.base_data_folder = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256'
-        label_json_file_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256/labels.json'
+        # self.base_data_folder = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256'
+        # label_json_file_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256/labels.json'
+        self.base_data_folder = 'data/3D_trans_diff_v1_256'
+        label_json_file_path = 'data/3D_trans_diff_v1_256/labels.json'
         self.img_paths = []
 
         with open(label_json_file_path, 'r') as file:
@@ -137,6 +140,88 @@ class FixedTransDatasetVal(FixedTransDatasetBase):
 
     def __len__(self):
         return len(self.img_paths)
+    
+class FullTransDatasetTrain(FixedTransDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.img_info = []
+
+        for img_pair in self.labels['data'][:1300]:
+            img_info = {
+                'ground': os.path.join(self.base_data_folder, img_pair['train_img_1_info']['img_name']),
+                'aerial': os.path.join(self.base_data_folder, img_pair['train_img_0_info']['img_name']),
+                'location': img_pair['train_img_0_info']['location']
+            }
+            self.img_info.append(
+                img_info
+            )
+
+    def __getitem__(self, idx):
+
+        ground_img = cv2.imread(self.img_info[idx]['ground'])
+        aerial_img = cv2.imread(self.img_info[idx]['aerial'])
+
+        # normalize between [-1, 1]
+        ground_img = ground_img / 127.5 - 1
+        aerial_img = aerial_img / 127.5 - 1
+
+        # get the location
+        x = self.img_info[idx]['location']['x']
+        y = self.img_info[idx]['location']['y']
+        z = self.img_info[idx]['location']['z']
+        z_angle = self.img_info[idx]['location']['z_angle']
+
+        output_dict = {
+            'ground': ground_img,
+            'aerial': aerial_img,
+            'location': np.array([[x, y, z, z_angle]], dtype='float32')
+        }
+
+        return output_dict
+
+    def __len__(self):
+        return len(self.img_info)
+    
+class FullTransDatasetVal(FixedTransDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.img_info = []
+
+        for img_pair in self.labels['data'][1300:]:
+            img_info = {
+                'ground': os.path.join(self.base_data_folder, img_pair['train_img_1_info']['img_name']),
+                'aerial': os.path.join(self.base_data_folder, img_pair['train_img_0_info']['img_name']),
+                'location': img_pair['train_img_0_info']['location']
+            }
+            self.img_info.append(
+                img_info
+            )
+
+    def __getitem__(self, idx):
+
+        ground_img = cv2.imread(self.img_info[idx]['ground'])
+        aerial_img = cv2.imread(self.img_info[idx]['aerial'])
+
+        # normalize between [-1, 1]
+        ground_img = ground_img / 127.5 - 1
+        aerial_img = aerial_img / 127.5 - 1
+
+        # get the location
+        x = self.img_info[idx]['location']['x']
+        y = self.img_info[idx]['location']['y']
+        z = self.img_info[idx]['location']['z']
+        z_angle = self.img_info[idx]['location']['z_angle']
+
+        output_dict = {
+            'ground': ground_img,
+            'aerial': aerial_img,
+            'location': np.ndarray([x, y, z, z_angle])
+        }
+
+        return output_dict
+
+    def __len__(self):
+        return len(self.img_info)
 
 if __name__=='__main__':
     dataset =  FixedTransDatasetAerialViewTrain()
