@@ -227,8 +227,8 @@ class TransDataset1D_Base(Dataset):
     def __init__(self, **kwargs):
         # self.base_data_folder = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256'
         # label_json_file_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256/labels.json'
-        self.base_data_folder = 'data/1D_trans_diff_v1_test'
-        label_json_file_path = 'data/1D_trans_diff_v1_test/labels.json'
+        self.base_data_folder = 'data/1D_trans_diff_v1'
+        label_json_file_path = 'data/1D_trans_diff_v1/labels.json'
         self.img_paths = []
 
         with open(label_json_file_path, 'r') as file:
@@ -284,7 +284,10 @@ class TransDataset1D_Train(TransDataset1D_Base):
                 }
                 self.img_info.append(info)
         split_idx = len(self.img_info) // 5
-        self.img_info = self.img_info[split_idx:]
+        self.img_info = self.img_info[43700:]
+
+        # # debugging
+        # self.img_info = self.img_info[0:100]
 
     def __getitem__(self, idx):
 
@@ -360,6 +363,9 @@ class TransDataset1D_Val(TransDataset1D_Base):
                 self.img_info.append(info)
         split_idx = len(self.img_info) // 5
         self.img_info = self.img_info[:split_idx]
+
+        # # debugging
+        # self.img_info = self.img_info[500:600]
 
     def __getitem__(self, idx):
 

@@ -722,7 +722,7 @@ class LatentDiffusion(DDPM):
 
         # if a translation label is passed extract it, otherwise make the label
         # None
-        if translation_label:
+        if self.translation_label:
             translation_label = batch['location']
             out.append(translation_label)
         else:
@@ -1022,7 +1022,7 @@ class LatentDiffusion(DDPM):
             x_recon = fold(o) / normalization
 
         else:
-            if translation_label is not None:
+            if self.translation_label is not None:
                 cond['c_concat'] = [translation_label]
             x_recon = self.model(x_noisy, t, **cond)
 
@@ -1275,7 +1275,7 @@ class LatentDiffusion(DDPM):
                                   mask=mask, x0=x0)
 
     @torch.no_grad()
-    def sample_log(self,cond,batch_size,ddim, ddim_steps,**kwargs):
+    def sample_log(self,cond,batch_size,ddim, ddim_steps, **kwargs):
 
         if ddim:
             ddim_sampler = DDIMSampler(self)
@@ -1301,7 +1301,7 @@ class LatentDiffusion(DDPM):
         use_ddim = ddim_steps is not None
 
         log = dict()
-        z, c, x, xrec, xc, location_label = self.get_input(batch, self.first_stage_key,
+        z, c, x, xrec, xc, translation_label = self.get_input(batch, self.first_stage_key,
                                                            return_first_stage_outputs=True,
                                                            force_c_encode=True,
                                                            return_original_cond=True,
@@ -1348,7 +1348,7 @@ class LatentDiffusion(DDPM):
             # get denoise row
             with self.ema_scope("Plotting"):
                 samples, z_denoise_row = self.sample_log(cond=c,batch_size=N,ddim=use_ddim,
-                                                         ddim_steps=ddim_steps,eta=ddim_eta)
+                                                         ddim_steps=ddim_steps,eta=ddim_eta, translation_label=translation_label)
                 # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True)
             x_samples = self.decode_first_stage(samples)
             log["samples"] = x_samples
@@ -1362,7 +1362,7 @@ class LatentDiffusion(DDPM):
                 with self.ema_scope("Plotting Quantized Denoised"):
                     samples, z_denoise_row = self.sample_log(cond=c,batch_size=N,ddim=use_ddim,
                                                              ddim_steps=ddim_steps,eta=ddim_eta,
-                                                             quantize_denoised=True)
+                                                             quantize_denoised=True, translation_label=translation_label)
                     # samples, z_denoise_row = self.sample(cond=c, batch_size=N, return_intermediates=True,
                     #                                      quantize_denoised=True)
                 x_samples = self.decode_first_stage(samples.to(self.device))
