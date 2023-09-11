@@ -315,6 +315,19 @@ class TransDataset1D_Train(TransDataset1D_Base):
     def __len__(self):
         return len(self.img_info)
     
+class TransDataset1D_Train_Autoencoder(TransDataset1D_Train):
+    def __getitem__(self, idx):
+        ground_img = cv2.imread(self.img_info[idx]['ground'])
+
+        # normalize between [-1, 1]
+        ground_img = ground_img / 127.5 - 1
+
+        output_dict = {
+            'image': ground_img
+        }
+
+        return output_dict
+    
 class TransDataset1D_Val(TransDataset1D_Base):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -392,6 +405,19 @@ class TransDataset1D_Val(TransDataset1D_Base):
     
     def __len__(self):
         return len(self.img_info)
+    
+class TransDataset1D_Val_Autoencoder(TransDataset1D_Val):
+    def __getitem__(self, idx):
+        ground_img = cv2.imread(self.img_info[idx]['ground'])
+
+        # normalize between [-1, 1]
+        ground_img = ground_img / 127.5 - 1
+
+        output_dict = {
+            'image': ground_img
+        }
+
+        return output_dict
 
 if __name__=='__main__':
     dataset_train =  TransDataset1D_Train()

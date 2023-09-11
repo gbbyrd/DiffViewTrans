@@ -21,7 +21,7 @@
             "justMyCode": true,
             "args":[
                 // "--base", "configs/autoencoder/custom_vqgan.yaml",
-                "--base", "configs/autoencoder/vqgan_aerial.yaml",
+                "--base", "configs/autoencoder/vqgan_base.yaml",
                 "-t", "--gpus", "0,"
             ]
         },
