@@ -284,10 +284,10 @@ class TransDataset1D_Train(TransDataset1D_Base):
                 }
                 self.img_info.append(info)
         split_idx = len(self.img_info) // 5
-        self.img_info = self.img_info[43700:]
+        # self.img_info = self.img_info[split_idx:]
 
-        # # debugging
-        # self.img_info = self.img_info[0:100]
+        # debugging
+        self.img_info = self.img_info[0:100]
 
     def __getitem__(self, idx):
 
@@ -316,6 +316,9 @@ class TransDataset1D_Train(TransDataset1D_Base):
         return len(self.img_info)
     
 class TransDataset1D_Train_Autoencoder(TransDataset1D_Train):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def __getitem__(self, idx):
         ground_img = cv2.imread(self.img_info[idx]['ground'])
 
@@ -375,10 +378,10 @@ class TransDataset1D_Val(TransDataset1D_Base):
                 }
                 self.img_info.append(info)
         split_idx = len(self.img_info) // 5
-        self.img_info = self.img_info[:split_idx]
+        # self.img_info = self.img_info[:split_idx]
 
-        # # debugging
-        # self.img_info = self.img_info[500:600]
+        # debugging
+        self.img_info = self.img_info[500:600]
 
     def __getitem__(self, idx):
 
@@ -407,6 +410,9 @@ class TransDataset1D_Val(TransDataset1D_Base):
         return len(self.img_info)
     
 class TransDataset1D_Val_Autoencoder(TransDataset1D_Val):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     def __getitem__(self, idx):
         ground_img = cv2.imread(self.img_info[idx]['ground'])
 
@@ -420,13 +426,7 @@ class TransDataset1D_Val_Autoencoder(TransDataset1D_Val):
         return output_dict
 
 if __name__=='__main__':
-    dataset_train =  TransDataset1D_Train()
-    dataset_val = TransDataset1D_Val()
+    dataset_fixed = FixedTransDatasetGroundViewTrain()
+    dataset_1d = TransDataset1D_Train_Autoencoder()
 
-    for data in dataset_train:
-        print(data)
-
-    for data in dataset_val:
-        print(data)
-    
     what = 'yes'
