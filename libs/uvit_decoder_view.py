@@ -301,6 +301,8 @@ class UViT(nn.Module):
         condition = torch.cat((time_token,condition),dim=1)
 
         if translation_label is not None:
+            if context.get_device() == 0:
+                translation_label = translation_label.cuda()
             translation_token = self.translation_embed(translation_label)
 
             # not sure whether to include in both input and condition..

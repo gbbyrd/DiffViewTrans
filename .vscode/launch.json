@@ -43,10 +43,29 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args":[
                 "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
                 "-t", "--gpus", "0,"
+            ]
+        },{
+            "name": "Sample Diffusion Model 3D",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/diff_trans_1d_e99.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/vqgan_e26.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/3d_view_translation_config.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/vqgan_e26.ckpt",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_diff_v1",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/samples_train_data",
+                "--n_samples", "40"
             ]
         }
     ]
