@@ -1,9 +1,20 @@
 import json
 import random
 
-labels_file_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_diff_v1_256/labels.json'
+yes = [5, 10, 11]
 
-with open(labels_file_path, 'r') as file:
-    data = json.load(file)
+no = yes.copy()
 
-what = 'yes'
+no[1] = 54
+
+print(no)
+print(yes)
+
+def what(l):
+    l[1] = 54
+    return l
+
+no = what(yes)
+
+print(yes)
+print(no)

@@ -71,7 +71,10 @@ class DDPM(pl.LightningModule):
                  use_positional_encodings=False,
                  learn_logvar=False,
                  logvar_init=0.,
-                 translation_label=None
+
+                 # grayson added these
+                 translation_label=None,
+                 sensor_config=None
                  ):
         super().__init__()
         assert parameterization in ["eps", "x0"], 'currently only supporting "eps" and "x0"'
@@ -115,6 +118,7 @@ class DDPM(pl.LightningModule):
             self.logvar = nn.Parameter(self.logvar, requires_grad=True)
 
         self.translation_label = translation_label
+        self.sensor_config = sensor_config
 
 
     def register_schedule(self, given_betas=None, beta_schedule="linear", timesteps=1000,
@@ -667,7 +671,14 @@ class LatentDiffusion(DDPM):
     @torch.no_grad()
     def get_input(self, batch, k, translation_label=None, return_first_stage_outputs=False, force_c_encode=False,
                   cond_key=None, return_original_cond=False, bs=None):
-        x = super().get_input(batch, k)
+        if self.sensor_config is not None:
+            if self.sensor_config == 'depth_semantic':
+                semantic = super().get_input(batch, 'semantic_ground')
+                depth = super().get_input(batch, 'depth_ground')
+                zeros = torch.zeros_like(depth)
+                x = torch.cat((zeros, depth, semantic), dim=1)
+        else:
+            x = super().get_input(batch, k)
         if bs is not None:
             x = x[:bs]
         x = x.to(self.device)
@@ -683,7 +694,16 @@ class LatentDiffusion(DDPM):
                 elif cond_key == 'class_label':
                     xc = batch
                 else:
-                    xc = super().get_input(batch, cond_key).to(self.device)
+                    # this is a messy way to implement this, but I do not
+                    # want to modify the original code if at all possible
+                    if self.sensor_config is not None:
+                        if self.sensor_config == 'depth_semantic':
+                            semantic = super().get_input(batch, 'semantic_aerial')
+                            depth = super().get_input(batch, 'depth_aerial')
+                            zeros = torch.zeros_like(depth)
+                            xc = torch.cat((zeros, depth, semantic), dim=1)
+                    else:
+                        xc = super().get_input(batch, cond_key).to(self.device)
             else:
                 xc = x
             if not self.cond_stage_trainable or force_c_encode:

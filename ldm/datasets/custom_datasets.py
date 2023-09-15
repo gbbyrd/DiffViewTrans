@@ -1,7 +1,9 @@
 import os
+from typing import Any
 import cv2
 import glob
 import json
+import random
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -338,7 +340,7 @@ class TransDataset1D_Val(TransDataset1D_Base):
 
         normalize_dict = {}
         for key in self.sensor_limits:
-            if key == 'num_sensors':
+            if key == 'num_sensors' or key == 'num_sensor_types':
                 continue
             if self.sensor_limits[key][0] == self.sensor_limits[key][1]:
                 normalize_dict[key] = False
@@ -424,9 +426,542 @@ class TransDataset1D_Val_Autoencoder(TransDataset1D_Val):
         }
 
         return output_dict
+    
+class TransDepthDataset3D_Base(Dataset):
+    def __init__(self, data_folder_path=None, sensor_types_to_return = None, **kwargs):
+        if data_folder_path is None:
+            self.base_data_folder = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_multi_sensor_test'
+        else:
+            self.base_data_folder = data_folder_path
+        label_json_file_path = self.base_data_folder + '/labels.json'
+        self.img_paths = []
+
+        with open(label_json_file_path, 'r') as file:
+            data = json.load(file)
+
+        self.labels = data['data']
+        self.sensor_limits = data['sensor_limits']
+
+        num_sensor_types = self.sensor_limits['num_sensor_types']
+
+        self.labels = normalize_labels(self.sensor_limits, self.labels)
+
+        data_pairs = []
+
+        # create translation dataset
+        for label in self.labels:
+            label = list(label.values())
+            # get the ground truth image set
+            ground_truth = label[-num_sensor_types:]
+            translation_labels = label[:-num_sensor_types]
+            idx = 0
+
+            # get pairs of data from each translation image in the group
+            while idx+2 < len(translation_labels):
+                trans_group_info = dict()
+                trans_group_info['location'] = translation_labels[idx]['location']
+                for i in range(num_sensor_types):
+                    img_info = translation_labels[idx]
+                    sensor_name = img_info['img_name']
+                    sensor_type = img_info['img_name'].split('_')[0]+'_aerial'
+                    trans_group_info[sensor_type] = sensor_name
+                    idx += 1
+
+                # add ground truth to image group
+                for img in ground_truth:
+                    sensor_name = img['img_name']
+                    sensor_type = img['img_name'].split('_')[0]+'_ground'
+                    trans_group_info[sensor_type] = sensor_name
+
+                data_pairs.append(trans_group_info)
+
+        # shuffle and get train and validation sets
+        random.seed(42)
+
+        random.shuffle(data_pairs)
+        
+        split_idx = len(data_pairs) // 5
+        self.train_pairs = data_pairs[split_idx:]
+        self.val_pairs = data_pairs[:split_idx]
+
+        if sensor_types_to_return:
+            self.sensor_types_to_return = sensor_types_to_return
+        else:
+            self.sensor_types_to_return = [
+                'rgb',
+                'semantic',
+                'depth'
+            ]
+
+    def __getitem__(self, idx):
+        
+        data = self.data_pairs[idx]
+
+        output = dict()
+
+        # get the ground sensor imgs
+        for sensor_type in self.sensor_types_to_return:
+            sensor_key = f'{sensor_type}_ground'
+            output[sensor_key] = cv2.imread(self._set_path(data[sensor_key]))
+        
+        # get the translation sensor imgs
+        for sensor_type in self.sensor_types_to_return:
+            sensor_key = f'{sensor_type}_aerial'
+            output[sensor_key] = cv2.imread(self._set_path(data[sensor_key]))
+
+        # normalize labels between [-1, 1]
+        for sensor_name in output:
+            sensor_type = sensor_name.split('_')[0]
+            output[sensor_name] = normalize_sensor_data(sensor_type, output[sensor_name])
+
+        # get the location
+        x = data['location']['x']
+        y = data['location']['y']
+        z = data['location']['z']
+        z_angle = data['location']['z_angle']
+
+        output['location'] = np.array([[x, y, z, z_angle]], dtype='float32')
+
+        return output
+    
+    def _set_path(self, img_name):
+        return os.path.join(self.base_data_folder, img_name)
+    
+class TransDepthDataset3D_Train(TransDepthDataset3D_Base):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.data_pairs = self.train_pairs
+
+    def __len__(self):
+        return len(self.data_pairs)
+    
+class TransDepthDataset3D_Val(TransDepthDataset3D_Base):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.data_pairs = self.val_pairs
+
+    def __len__(self):
+        return len(self.data_pairs)
+    
+def normalize_sensor_data(sensor_type, sensor_data, num_semantic_classes=None):
+    if sensor_type == 'rgb':
+        sensor_data = sensor_data / 127.5 - 1
+    elif sensor_type == 'depth':
+        sensor_data = sensor_data[:,:,2] + 256 * sensor_data[:,:,1] + 256 * 256 * sensor_data[:,:,0]
+        sensor_data = sensor_data / (256 * 256 * 256 - 1)
+    elif sensor_type == 'semantic_segmentation':
+        if num_semantic_classes is None:
+            num_semantic_classes = 24
+        sensor_data = sensor_data[:,:,2] / num_semantic_classes * 2 - 1
+    elif sensor_type == 'instance_segmentation':
+        # TODO: Add instance segmentation normalization
+        pass
+    else:
+        raise Exception("Invalid sensor type.")
+    
+    return sensor_data
+
+def normalize_labels(sensor_limits, labels):
+    normalize_dict = {}
+    for key in sensor_limits:
+        if key == 'num_sensors' or key == 'num_sensor_types':
+            continue
+        if sensor_limits[key][0] == sensor_limits[key][1]:
+            normalize_dict[key] = False
+        else:
+            normalize_dict[key] = True
+
+    # normalize all sensor location data
+    for idx, label in enumerate(labels):
+        for label_idx, img_name in enumerate(label):
+            for key in label[img_name]['location']:
+                # TODO: Unhack the below two lines
+                if key == 'sensor_bp':
+                    continue
+                if normalize_dict[f'{key}_limits']:
+                    min_lim = sensor_limits[f'{key}_limits'][0]
+                    max_lim = sensor_limits[f'{key}_limits'][1]
+
+                    # normalize between 0 and 1
+                    label[img_name]['location'][key] = (label[img_name]['location'][key] - min_lim) / (max_lim-min_lim)
+
+                    # normalize between -1 and 1
+                    label[img_name]['location'][key] = label[img_name]['location'][key] * 2 - 1
+                else:
+                    label[img_name]['location'][key] = 0
+
+        labels[idx] = label
+    
+    return labels
+
+class InstanceDepthDatasetBase(Dataset):
+    def __init__(self, **kwargs):
+        self.base_data_folder = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_multi_sensor_test_v1'
+        label_json_file_path = self.base_data_folder+'/labels.json'
+
+        # instance segmentation specifications
+        self.max_instances = 255        # chosen to be the max value found in an image RGB value
+        self.num_semantic_classes = 25  # carla spec
+
+        with open(label_json_file_path, 'r') as file:
+            data = json.load(file)
+
+        self.labels = data['data']
+        self.sensor_limits = data['sensor_limits']
+
+        num_sensor_types = self.sensor_limits['num_sensor_types']
+
+        # the below normalizes the sensor location information NOT the images
+        self.labels = normalize_labels(self.sensor_limits, self.labels)
+
+        data_pairs = []
+
+        # create translation dataset
+        for label in self.labels:
+            label = list(label.values())
+            # get the ground truth image set
+            ground_truth = label[-num_sensor_types:]
+            translation_labels = label[:-num_sensor_types]
+            idx = 0
+
+            # get pairs of data from each translation image in the group
+            while idx+num_sensor_types < len(translation_labels):
+                trans_group_info = dict()
+                trans_group_info['location'] = translation_labels[idx]['location']
+                for i in range(num_sensor_types):
+                    img_info = translation_labels[idx]
+                    sensor_name = img_info['img_name']
+                    sensor_type = img_info['img_name'].split('_')[0]+'_trans'
+                    trans_group_info[sensor_type] = sensor_name
+                    idx += 1
+
+                # add ground truth to image group
+                for img in ground_truth:
+                    sensor_name = img['img_name']
+                    sensor_type = img['img_name'].split('_')[0]+'_ground'
+                    trans_group_info[sensor_type] = sensor_name
+
+                data_pairs.append(trans_group_info)
+
+        # shuffle and get train and validation sets
+        random.seed(42)
+
+        random.shuffle(data_pairs)
+        
+        split_idx = len(data_pairs) // 5
+        self.train_pairs = data_pairs[split_idx:]
+        self.val_pairs = data_pairs[:split_idx]
+
+        self.data_pairs = data_pairs
+
+    def __getitem__(self, idx):
+        data = self.data_pairs[idx]
+
+        output = dict()
+
+        # get the normalized instance images
+        instance_ground_path = self._set_path(data['instance_ground'])
+        instance_trans_path = self._set_path(data['instance_trans'])
+
+        # img = cv2.imread(instance_ground_path)
+        # img_new = np.zeros_like(img)
+        # img_new[:,:,2] = img[:,:,2]
+        # for i in range(256):
+        #     for j in range(256):
+        #         if img_new[i,j,2] == 1:
+        #             img_new[i,j,2] = 100
+        # cv2.imshow('img', img_new)
+        # cv2.waitKey(0)
+
+        instance_img_trans, instance_img_ground = self._preprocess_instance_segmentation(instance_trans_path, 
+                                                                                         instance_ground_path)
+        
+        # get the depth images and normalize
+        depth_img_trans_path = self._set_path(data['depth_trans'])
+        depth_img_ground_path = self._set_path(data['depth_ground'])
+
+        depth_img_trans = self._preprocess_depth(depth_img_trans_path)
+        depth_img_ground = self._preprocess_depth(depth_img_ground_path)
+
+        # concatenate the images together channel wise to get your ground and
+        # translation images
+        ground_img = np.concatenate((depth_img_ground, instance_img_ground), axis=2)
+        trans_img = np.concatenate((depth_img_trans, instance_img_trans), axis=2)
+
+        # get the location
+        x = data['location']['x']
+        y = data['location']['y']
+        z = data['location']['z']
+        z_angle = data['location']['z_angle']
+
+        output_dict = {
+            'ground': ground_img,
+            'trans': trans_img,
+            'location': np.array([[x, y, z, z_angle]], dtype='float32')
+        }
+
+        return output_dict
+    
+    def __len__(self):
+        return len(self.data_pairs)
+    
+    def _set_path(self, img_name):
+        return os.path.join(self.base_data_folder, img_name)
+    
+    def _preprocess_depth(self, depth_img_path):
+        """ Normalize depth image and return h x w x 1 numpy array."""
+        depth_img = cv2.imread(depth_img_path)
+        depth_img = depth_img[:,:,2] + 256 * depth_img[:,:,1] + 256 * 256 * depth_img[:,:,0]
+        depth_img = depth_img / (256 * 256 * 256 - 1)
+        depth_img = depth_img * 2 - 1
+
+        return np.expand_dims(depth_img, axis=-1)
+    
+    def _process_dataset(self):
+        """ Preprocesses the dataset to save the depth data, """
+        # TODO:create function
+        pass
+
+    def _preprocess_instance_segmentation(self, 
+                                          img_path_trans, 
+                                          img_path_ground_truth):
+        """Takes in a h x w x 3 instance segmentation image, where the instance
+        ID is in the B and G values and the semantic id is in the R value. Compresses
+        the instance IDs to be integers between 0 and the max number of instance 
+        IDs allowed. Normalizes everything between 0 and 1. Returns a h x w x 2
+        numpy array to be concatenated with the depth information."""
+        
+        # get list of possible instance IDs, leave 0 value for 'unknown instance id'
+        instance_labels = np.linspace(1, self.max_instances, self.max_instances).tolist()
+        # we shuffle the labels to randomize the instance IDs and reduce bias in
+        # the model towards small instance ID values
+        random.shuffle(instance_labels)
+
+        # get all instance ID's from the translated image first
+        trans_img = cv2.imread(img_path_trans).astype('float64')
+
+        # ** NOTE: cv2 reads images in [b, g, r] format
+
+        h, w, _ = trans_img.shape
+        id_map = dict()
+        for i in range(h):
+            for j in range(w):
+
+                # get unique identifier
+                id_0 = str(trans_img[i,j,0])+str(trans_img[i,j,1])
+
+                # if new img id, add to dictionary
+                if id_0 not in id_map:
+                    if len(instance_labels) == 0:
+                        print('Max instances exceeded.. marking as 0')
+                        id_map[id_0] = 0
+                    else:
+                        id_map[id_0] = instance_labels.pop()
+
+                trans_img[i,j,1] = id_map[id_0]
+
+        # modify all instance ID's for the ground truth img, label instance id 
+        # and semantic id as 0 if not seen in trans img. (we dont want the model
+        # to try to predict what an unseen area is. Just that the area is unseen)
+        ground_truth_img = cv2.imread(img_path_ground_truth).astype('float64')
+        for i in range(h):
+            for j in range(w):
+
+                # get unique identifier
+                id_0 = str(ground_truth_img[i,j,0])+str(ground_truth_img[i,j,1])
+
+                if id_0 not in id_map:
+                    ground_truth_img[i,j,1] = 0
+                    ground_truth_img[i,j,2] = 0
+                else:
+                    ground_truth_img[i,j,1] = id_map[id_0]
+
+        # normalize the images between [-1, 1]
+        trans_img[:,:,1] = (trans_img[:,:,1] / self.max_instances) * 2 - 1
+        ground_truth_img[:,:,1] = (ground_truth_img[:,:,1] / self.max_instances) * 2 - 1
+        if np.max(trans_img[:,:,2]) > self.num_semantic_classes:
+            print('Warning: Semantic class exceeds maximum')
+        if np.max(ground_truth_img[:,:,2]) > self.num_semantic_classes:
+            print('Warning: Semantic class exceeds maximum')
+        trans_img[:,:,2] = (trans_img[:,:,2] / self.num_semantic_classes) * 2 - 1
+        ground_truth_img[:,:,2] = (ground_truth_img[:,:,2] / self.num_semantic_classes) * 2 - 1
+
+        return trans_img[:,:,1:], ground_truth_img[:,:,1:]
+
+    def dataset_verification(self):
+
+        carla_semantic_color_map = {
+            0: (0,0,0),
+            1: (70,70,70),
+            2: (100,40,40),
+            3: (55,90,80),
+            4: (220,20,60),
+            5: (153,153,153),
+            6: (157,234,50),
+            7: (128,64,128),
+            8: (244,35,232),
+            9: (107,142,35),
+            10: (0,0,142),
+            11: (102,102,156),
+            12: (220,220,0),
+            13: (70,130,180),
+            14: (81,0,81),
+            15: (150,100,100),
+            16: (230,150,140),
+            17: (180,165,180),
+            18: (180,165,180),
+            19: (110,190,160),
+            20: (170,120,150),
+            21: (45,60,150),
+            22: (145,170,100),
+            23: (180,23,34),
+            24: (120, 60, 80),
+            25: (140, 0, 190)
+        }
+
+        while 1:
+            idx = random.randint(0, len(self.data_pairs)-1)
+            output_dict = self[idx]
+
+            # load the images, and present the depth, instance segmentation, and
+            # semantic segmentation from each image
+
+            # translation images
+            trans_combined_image = output_dict['trans']
+
+            depth_trans = np.zeros_like(trans_combined_image)
+            instance_trans = np.zeros_like(trans_combined_image)
+            semantic_trans = np.zeros_like(trans_combined_image)
+
+            # denormalize the depth and break it up into RGB values to get a more
+            # accurate image.. read the sensor documentation here to understand
+            # https://carla.readthedocs.io/en/latest/ref_sensors/#depth-camera
+            depth_trans = trans_combined_image[:,:,0]
+            depth_trans = ((depth_trans + 1) / 2 * (256 * 256 * 256 - 1)).astype('uint32')
+            depth_trans = np.expand_dims(depth_trans, axis=-1)
+            # use bitwise to break up into different RGB values
+            R = 0xFF & depth_trans
+            G = (0xFF00 & depth_trans)>>8
+            B = (0xFF0000 & depth_trans)>>16
+
+            # concatenate together to get proper BGR depth img
+            depth_trans = np.concatenate((B,G,R), axis=2).astype('uint8')
+
+            # denormalize the instance labels
+            instance_trans[:,:,2] = trans_combined_image[:,:,1]
+            instance_trans = np.rint(((instance_trans + 1) / 2 * self.max_instances)).astype('uint32')
+
+            h, w, c = instance_trans.shape
+            id2color_map = dict()
+            # go through all of the instance labels creating unique colors for
+            # each label
+            for i in range(h):
+                for j in range(w):
+                    instance_id = instance_trans[i,j,2]
+                    if instance_id not in id2color_map:
+                        # give the identifier a random color
+                        id2color_map[instance_id] = np.random.randint(0, 256, size=(1, 1, 3))
+                    instance_trans[i, j, :] = id2color_map[instance_id]
+
+            # denormalize the semantic image
+            semantic_trans[:,:,2] = trans_combined_image[:,:,2]
+            semantic_trans = np.rint(((semantic_trans + 1) / 2 * self.num_semantic_classes)).astype('uint8')
+            for i in range(h):
+                for j in range(w):
+                    semantic_id = semantic_trans[i,j,2]
+                    semantic_trans[i,j,:] = np.array((carla_semantic_color_map[semantic_id][2],
+                                                    carla_semantic_color_map[semantic_id][1],
+                                                    carla_semantic_color_map[semantic_id][0]))
+
+            # ground truth
+            ground_truth_combined_img = output_dict['ground']
+
+            depth_ground = np.zeros_like(ground_truth_combined_img)
+            instance_ground = np.zeros_like(ground_truth_combined_img)
+            semantic_ground = np.zeros_like(ground_truth_combined_img)
+
+            # denormalize the depth and break it up into RGB values to get a more
+            # accurate image.. read the sensor documentation here to understand
+            # https://carla.readthedocs.io/en/latest/ref_sensors/#depth-camera
+            depth_ground = ground_truth_combined_img[:,:,0]
+            depth_ground = ((depth_ground + 1) / 2 * (256 * 256 * 256 - 1)).astype('uint32')
+            depth_ground = np.expand_dims(depth_ground, axis=-1)
+            # use bitwise to break up into different RGB values
+            R = 0xFF & depth_ground
+            G = (0xFF00 & depth_ground)>>8
+            B = (0xFF0000 & depth_ground)>>16
+
+            # concatenate together to get proper BGR depth img
+            depth_ground = np.concatenate((B,G,R), axis=2).astype('uint8')
+
+            # denormalize the instance labels
+            instance_ground[:,:,2] = ground_truth_combined_img[:,:,1]
+            instance_ground = np.rint(((instance_ground + 1) / 2 * self.max_instances)).astype('uint32')
+
+            # go through instance labels and give them colors corresponding to
+            # their identifier
+            for i in range(h):
+                for j in range(w):
+                    instance_id = instance_ground[i,j,2]
+                    if instance_id not in id2color_map:
+                        # give the identifier the color black for unknown instance
+                        instance_ground[i, j, :] = np.array((0,0,0))
+                    else:
+                        instance_ground[i, j, :] = id2color_map[instance_id]
+
+            # denormalize the semantic image
+            semantic_ground[:,:,2] = ground_truth_combined_img[:,:,2]
+            semantic_ground = np.rint(((semantic_ground + 1) / 2 * self.num_semantic_classes)).astype('uint8')
+            for i in range(h):
+                for j in range(w):
+                    semantic_id = semantic_ground[i,j,2]
+                    semantic_ground[i,j,:] = np.array((carla_semantic_color_map[semantic_id][2],
+                                                    carla_semantic_color_map[semantic_id][1],
+                                                    carla_semantic_color_map[semantic_id][0]))
+            
+            instance_trans = instance_trans.astype('uint8')
+            semantic_trans = semantic_trans.astype('uint8')
+
+            instance_ground = instance_ground.astype('uint8')
+            semantic_ground = semantic_ground.astype('uint8')
+
+            # display the images
+
+            # concatenate the ground and trans and display them in one image
+            concatenated_trans = np.concatenate((depth_trans, instance_trans, semantic_trans), axis=1)
+            concatenated_ground = np.concatenate((depth_ground, instance_ground, semantic_ground), axis=1)
+            full_concat = np.concatenate((concatenated_trans, concatenated_ground), axis=0)
+
+            # cv2.imshow('instance_trans', instance_trans)
+            cv2.imshow('full_concat', full_concat)
+            cv2.waitKey(10000)
+
+
+class InstanceDepthDatasetTrain(InstanceDepthDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.data_pairs = self.train_pairs
+
+class InstanceDepthDatasetVal(InstanceDepthDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.data_pairs = self.val_pairs
 
 if __name__=='__main__':
-    dataset_fixed = FixedTransDatasetGroundViewTrain()
-    dataset_1d = TransDataset1D_Train_Autoencoder()
+    dataset = InstanceDepthDatasetTrain()
+    dataset.dataset_verification()
 
+
+    # instance_seg = cv2.imread("/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_multi_sensor_test_v1/instance_segmentation_img_0000085.png")
+    # instances = set()
+    # for i in range(256):
+    #     for j in range(256):
+    #         pair = str(instance_seg[i,j,0])+'-'+str(instance_seg[i,j,1])
+    #         instances.add(pair)
+
+    # print(instances)
+    yes = dataset[0]
     what = 'yes'
+

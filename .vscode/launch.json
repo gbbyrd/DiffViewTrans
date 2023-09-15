@@ -21,7 +21,7 @@
             "justMyCode": true,
             "args":[
                 // "--base", "configs/autoencoder/custom_vqgan.yaml",
-                "--base", "configs/autoencoder/vqgan_base.yaml",
+                "--base", "configs/autoencoder/vqgan_base_depth_instance.yaml",
                 "-t", "--gpus", "0,"
             ]
         },
@@ -43,9 +43,10 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": true,
             "args":[
-                "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "--base", "configs/latent-diffusion/3d_view_translation_config_depth_rgb.yaml",
+                "--base", "configs/latent-diffusion/3d_view_translation_config_depth_instance.yaml",
                 "-t", "--gpus", "0,"
             ]
         },{
