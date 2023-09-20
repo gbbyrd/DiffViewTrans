@@ -49,8 +49,9 @@
                 "--base", "configs/latent-diffusion/3d_view_translation_config_depth_instance.yaml",
                 "-t", "--gpus", "0,"
             ]
-        },{
-            "name": "Sample Diffusion Model 3D",
+        },
+        {
+            "name": "Sample Diffusion Model 3D - Default",
             "type": "python",
             "request": "launch",
             "program": "${file}",
@@ -60,13 +61,33 @@
                 // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
                 // "-t", "--gpus", "0,"
                 "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
-                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/diff_trans_1d_e99.ckpt",
-                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/vqgan_e26.ckpt",
-                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/3d_view_translation_config.yaml",
-                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/vqgan_e26.ckpt",
-                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_diff_v1",
-                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/first_1d_exp/samples_train_data",
-                "--n_samples", "40"
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_instance_v1/3d_diff_depth_instance_epoch_139.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_instance_v1/vqgan_depth_instance_epoch_30.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_instance_v1/3d_view_translation_config_depth_instance.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3D_trans_multi_sensor_v1_val",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_instance_v1/samples_test",
+                "--n_samples", "10"
+            ]
+        },
+        {
+            "name": "Sample Diffusion Model 3D - 1D Depth Instance",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/1d_depth_instance_v1/depth_instance_diffusion_epoch=000299.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/1d_depth_instance_v1/vqgan_depth_instance_epoch_29.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/1d_depth_instance_v1/3d_view_translation_config_depth_instance.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_multi_sensor_v1_val",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/1d_depth_instance_v1/samples_random_x",
+                "--n_samples", "10"
             ]
         }
     ]

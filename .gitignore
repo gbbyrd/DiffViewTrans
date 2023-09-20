@@ -1,5 +1,5 @@
 logs/
-saved_experiments/
+saved_experiments/*
 *.txt
 data/
 taming/modules/autoencoder/lpips/vgg.pth

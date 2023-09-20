@@ -303,9 +303,17 @@ class UViT(nn.Module):
         if translation_label is not None:
             if context.get_device() == 0:
                 translation_label = translation_label.cuda()
-            translation_token = self.translation_embed(translation_label)
 
-            # not sure whether to include in both input and condition..
+            # TODO: experiment with the idea that the embedding is not necessary as
+            # the translation labels are already inherently contrastive (small
+            # perturbations in the translation label should reflect small changes
+            # in the generation process)
+            
+            translation_token = self.translation_embed(translation_label)
+            # translation_token = translation_label.expand(-1, -1, self.embed_dim)
+
+            # experiment with including translation token in both input and 
+            # condition..
             x = torch.cat((translation_token, x),dim=1)
             # condition = torch.cat((translation_token, condition),dim=1)
 
@@ -314,6 +322,7 @@ class UViT(nn.Module):
             label_emb = label_emb.unsqueeze(dim=1)
             x = torch.cat((label_emb, x), dim=1)
         x = x + self.pos_embed
+        
         # ensure that the positional embedding fix the condition in the event
         # that the condition is not the same size as the input (when you concat
         # the spatial information to the input but not the condition)
