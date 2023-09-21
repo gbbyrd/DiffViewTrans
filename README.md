@@ -1,8 +1,10 @@
-# Stable Diffusion Walaris
+# Trans Diffusion - Clemson University Big Data Lab
 
-This repo is a modified version of the original stable diffusion repo found here: https://github.com/CompVis/stable-diffusion
+This repo borrows heavily from the following repos:
+1. https://github.com/CompVis/stable-diffusion
+2. https://github.com/baofff/U-ViT
 
-It was created for the custom training and testing of stable diffusion models for synthetic data.
+It was created for training and researching diffusion models for the purpose of view translation.
 
 # Environment Setup
 To set up the conda environment, type the following command after navigating to the base directory of the repository:
@@ -15,15 +17,12 @@ Activate this environment with
 
 # Training
 
-In order to train an unconditional stable diffusion model, you must first train an autoencoder to take you to and from the latent space (where the diffusion takes place).
+In order to train a trans diffusion model, you must first train an autoencoder to take you to and from the latent space (where the diffusion takes place).
 
 ## Autoencoder
 In order to train an autoencoder, you must first make changes in the /configs/autoencoder/<autoencoder_choice>.yaml file.
 
 The main configurations to change are the target specifications for the train data. These configurations should be on lines 34 and 40 of the autoencoder_kl_64x64x3.yaml file (you can use different autoencoder.yaml files, this is just the one that I used.) For example, in that autoencoder_kl_64x64x3.yaml I commented out the original paths to the datasets and created my own custom pytorch datasets for the new data. 
-
-*** IT IS IMPORTANT TO NOTE, YOUR DATASET MUST OUTPUT A PYTHON DICTIONARY IN THE FORM {'image': img} WHERE `img` IS A NUMPY ARRAY NORMALIZED BETWEEN -1 AND 1 ***
-
 
 Once this is set up, run the following command to train the autoencoder:
 
@@ -31,7 +30,7 @@ Once this is set up, run the following command to train the autoencoder:
 
 Training information including the checkpoints will be saves in the log directory.
 
-## Latent Diffusion Model
+## Trans Diffusion Model
 
 Once you have trained an autoencoder, you can now train your ldm. For this, you will want to modify the config file for the latent diffusion model that you are going to train as follows.
 
@@ -49,22 +48,22 @@ Once again, the training information will appear in the log directory.
 
 Once you have your pretrained encoder and latent diffusion model, you can generate novel images similar to your training data.
 
-First, copy the config file that you used to train your ldm model into the `./logs/<model_name>/checkpoints` folder.
+Check the argument parameters in `scripts/trans_diff_inference.py` and specify your diffusion and autoencoder checkpoints along with your diffusion configuration file. You must also specify your dataset folder path in the command line arguments when running the file. 
 
-Next, you must add this repository to your python path.
+# Demo
 
-```export PYTHONPATH = $PYTHONPATH:<path to repo>```
+A demo has been setup in the `demo` folder. To run this demo, simply navigate to the folder and run the following commands
 
-Then run the following command to generate novel samples:
+```chmod +x demo.sh```
+```./demo.sh```
 
-```python scripts/thermal_ldm_inference.py -r <path to ldm checkpoint>```
+This will download the pretrained checkpoints and config file and sample some translations from the data.
 
-By default, this will sample 100 images and save the files in the logs/<model_name>/samples directory. However, there are multiple arguments you can pass to modify the number of samples, batch size, and provide a custom directory in which to save the images. Please look at the arguments in the scripts/thermal_ldm_inference.py file to see what arguments you can use.
+## Demo Samples
 
-# Memorization Testing
+The demo should output results in the below format, with the original image on the left, the ground truth image in the middle, and the translated (fake) image on the right.
 
-Diffusion models are known to memorize and regurgitate training data if the training data contains duplicates. In order to run a test for Euclidean Distance (L2 Norm) between samples from your diffusion model and the training sanples, you can run the following command. The pre_process argument allows you to implement any preprocessing that was done in the training data by implementing a custom pre_process function in the check_for_memorization.py script.
-
-```python scripts/check_for_memorization.py --training_image_folder <path to training image folder> --sample_image_folder <path to sample image folder> --pre_process <True/False>```
-
-This script will place the results of this test in a folder within the samples folder titled 'mem_test_images'.
+![alt text](https://github.com/gbbyrd/DiffViewTrans/blob/main/demo/samples_ref/sample_0.png?raw=true)
+![alt text](https://github.com/gbbyrd/DiffViewTrans/blob/main/demo/samples_ref/sample_1.png?raw=true)
+![alt text](https://github.com/gbbyrd/DiffViewTrans/blob/main/demo/samples_ref/sample_2.png?raw=true)
+![alt text](https://github.com/gbbyrd/DiffViewTrans/blob/main/demo/samples_ref/sample_3.png?raw=true)
