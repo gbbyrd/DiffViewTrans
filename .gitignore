@@ -11,3 +11,6 @@ src/
 taming/
 test*.py
 __pycache__/
+demo/*.ckpt
+demo/*.yaml
+demo/samples/*

@@ -217,6 +217,13 @@ class UViT(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4.,
                  qkv_bias=False, qk_scale=None, norm_layer=nn.LayerNorm, mlp_time_embed=False, num_classes=-1,
                  use_checkpoint=False, conv=True, skip=True,last_only=False, translation_distance_dim=None):
+        """Adapted from https://github.com/baofff/U-ViT repository from the
+        paper "All are Worth Words: A ViT Backbone for Diffusion Models". Modifies
+        the architecture to allow for conditional generation using cross attention
+        between condition and input in the encoder transformer blocks. Improves 
+        the sampling quality by adding cross attention in the decoder blocks
+        between the input and the output of multiple encoder blocks.
+        """
         super().__init__()
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
         self.num_classes = num_classes
@@ -322,7 +329,7 @@ class UViT(nn.Module):
             label_emb = label_emb.unsqueeze(dim=1)
             x = torch.cat((label_emb, x), dim=1)
         x = x + self.pos_embed
-        
+
         # ensure that the positional embedding fix the condition in the event
         # that the condition is not the same size as the input (when you concat
         # the spatial information to the input but not the condition)

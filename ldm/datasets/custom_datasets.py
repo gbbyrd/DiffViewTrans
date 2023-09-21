@@ -552,6 +552,9 @@ def normalize_sensor_data(sensor_type, sensor_data, num_semantic_classes=None):
     return sensor_data
 
 def normalize_labels(sensor_limits, labels):
+    """Normalizes all of the LOCATION VALUES ONLY for every label in a translation
+    dataset.
+    """
     normalize_dict = {}
     for key in sensor_limits:
         if key == 'num_sensors' or key == 'num_sensor_types':
