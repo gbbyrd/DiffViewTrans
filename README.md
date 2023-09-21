@@ -15,6 +15,20 @@ Activate this environment with
 
 ```conda activate ldm```
 
+# Collecting Data
+
+The data for this work is collected in the Carla simulator (Unreal Engine) and AutoDrive simulator (Unity). We are currently still working on adding functionality to the AutoDrive simulator, so it will not yet be supported in this README.
+
+## Carla
+Follow the instructions here to build carla from source on Linux: https://carla.readthedocs.io/en/latest/build_linux/
+Or here to build from source on Windows: https://carla.readthedocs.io/en/latest/build_windows/
+
+A sample data collection script that uses Carla synchronicity has been provided in the `carla_data_collection` folder. Carla provides a wide variety of sensors, and we encourage experimentation, but the current sensor configuration in that file should provide you with a label.json file and rgb, depth, and instance segmented images as shown below:
+
+![alt text](https://github.com/gbbyrd/DiffViewTrans/blob/main/demo/demo_1d_dataset/rgb_img_0000000.png.png?raw=true)
+![alt text](https://github.com/gbbyrd/DiffViewTrans/blob/main/demo/demo_1d_dataset/depth_img_0000000.png.png?raw=true)
+![alt text](https://github.com/gbbyrd/DiffViewTrans/blob/main/demo/demo_1d_dataset/instance_segmentation_img_0000000.png.png?raw=true)
+
 # Training
 
 In order to train a trans diffusion model, you must first train an autoencoder to take you to and from the latent space (where the diffusion takes place).
