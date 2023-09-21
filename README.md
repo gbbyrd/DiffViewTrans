@@ -59,11 +59,11 @@ Once you have configured your .yaml file, you can train your custom latent diffu
 
 Once again, the training information will appear in the log directory.
 
-# Generating Novel Data
+# Inference
 
-Once you have your pretrained encoder and latent diffusion model, you can generate novel images similar to your training data.
+Once you have your pretrained encoder and latent diffusion model, you can run the view translation algorithm.
 
-Check the argument parameters in `scripts/trans_diff_inference.py` and specify your diffusion and autoencoder checkpoints along with your diffusion configuration file. You must also specify your dataset folder path in the command line arguments when running the file. 
+Check the argument parameters in `scripts/trans_diff_inference.py` and specify your diffusion and autoencoder checkpoints along with your diffusion configuration file. You must also specify your dataset folder path in the command line arguments when running the file. Other arguments can be used to fine tune your results.. Just check the argument list for information.
 
 # Demo
 
