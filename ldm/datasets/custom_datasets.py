@@ -587,6 +587,42 @@ def normalize_labels(sensor_limits, labels):
     
     return labels
 
+def normalize_labels_sensor_params(sensor_params, labels):
+    """Normalizes all of the LOCATION VALUES ONLY for every label in a translation
+    dataset.
+    """
+    normalize_dict = {}
+    for key in sensor_params:
+        if key == 'num_sensors' or key == 'num_sensor_types':
+            continue
+        if sensor_params[key][0] == sensor_params[key][1]:
+            normalize_dict[key] = False
+        else:
+            normalize_dict[key] = True
+
+    # normalize all sensor location data
+    for idx, label in enumerate(labels):
+        for label_idx, img_name in enumerate(label):
+            for key in label[img_name]['location']:
+                # TODO: Unhack the below two lines
+                if key == 'sensor_bp':
+                    continue
+                if normalize_dict[key]:
+                    min_lim = sensor_params[key][0]
+                    max_lim = sensor_params[key][1]
+
+                    # normalize between 0 and 1
+                    label[img_name]['location'][key] = (label[img_name]['location'][key] - min_lim) / (max_lim-min_lim)
+
+                    # normalize between -1 and 1
+                    label[img_name]['location'][key] = label[img_name]['location'][key] * 2 - 1
+                else:
+                    label[img_name]['location'][key] = 0
+
+        labels[idx] = label
+    
+    return labels
+
 class InstanceDepthDatasetBase(Dataset):
     """This dataset takes in a path to the data folder, reads the labels file,
     and produces a dictionary of normalized numpy arrays in the form:
@@ -999,19 +1035,166 @@ class InstanceDepthDatasetVal(InstanceDepthDatasetBase):
 
         self.data_pairs = self.val_pairs
 
+def preprocess_data(labels_json_path: str,
+                    type: str):
+    # read label data
+        with open(labels_json_path, 'r') as file:
+            data = json.load(file)
+
+        labels = data['data']
+        sensor_params = data['sensor_params']
+        sensor_types = sensor_params['sensor_types']
+        num_aux_sensors = sensor_params['num_aux_sensors']
+
+        # the below normalizes the sensor location information, NOT the images
+        labels = normalize_labels_sensor_params(sensor_params['relative_spawn_limits'], labels)
+        
+        # process the dataset in one to many format (one 'from' image and many 'to' images)
+        if type == 'one_to_many':
+            data_pairs = []
+            for label in labels:
+                # the first sensor location should be the one 'from' image
+                label = list(label.values())
+
+                # get all sensor data from the 'from' location
+                from_img_paths = dict()
+                sensor_idx = 0
+                for _ in range(len(sensor_types)):
+                    sensor_info = label[sensor_idx]
+                    from_img_paths[sensor_info['sensor_type']] = (sensor_info['img_name'])
+                    sensor_idx +=1
+
+                # get all sensor data from the 'to' locations
+                for i in range(num_aux_sensors):
+                    to_img_paths = dict()
+                    for _ in range(len(sensor_types)):
+                        sensor_info = label[sensor_idx]
+                        to_img_paths[sensor_info['sensor_type']] = (sensor_info['img_name'])
+                        sensor_idx +=1
+
+                    data_pairs.append({'from': from_img_paths,
+                                       'to': to_img_paths,
+                                       'translation_label': sensor_info['location']})
+        else:
+            raise NotImplementedError("Need to add many to one functionality.")
+        
+        return data_pairs
+
+
+class DepthDatasetBase(Dataset):
+    """
+    For datasets with depth information only.
+
+    This dataset takes in a path to the data folder, reads the labels file,
+    and produces a dictionary of normalized numpy arrays in the form:
+    
+    output_dict = {
+        'ground' (np.array): ground_img,
+        'trans' (np.array): trans_img,
+        'location' (np.array): relative location of the ground img from the
+            trans img
+    }
+    """
+
+    def __init__(self, data_folder_path=None, **kwargs):
+        if data_folder_path is None:
+            data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3d_trans_multi_sensor_v3_large'
+        self.base_data_folder = data_folder_path
+        label_json_file_path = self.base_data_folder+'/labels.json'
+
+        data_pairs = preprocess_data(label_json_file_path,
+                                     type='one_to_many')
+
+        # shuffle and get train and validation sets
+        random.seed(42)
+
+        random.shuffle(data_pairs)
+        
+        split_idx = len(data_pairs) // 5
+        self.train_pairs = data_pairs[split_idx:]
+        self.val_pairs = data_pairs[:split_idx]
+
+        self.data_pairs = data_pairs
+    
+    def __getitem__(self, idx):
+        data_pair = self.data_pairs[idx]
+
+        # we only want the depth information
+        from_depth = os.path.join(self.base_data_folder,
+                                  data_pair['from']['depth'])
+        to_depth = os.path.join(self.base_data_folder,
+                                data_pair['to']['depth'])
+        
+        from_depth = self._preprocess_depth(from_depth)
+        to_depth = self._preprocess_depth(to_depth)
+
+        # get the location
+        x = data_pair['translation_label']['x']
+        y = data_pair['translation_label']['y']
+        z = data_pair['translation_label']['z']
+        yaw = data_pair['translation_label']['yaw']
+
+        # uncomment below to see if model is learning without translation label
+
+        # print(f'original y: {y}')
+        # # randomize y
+        # y = random.random() * 2 - 1
+        # print(f'new_y: {y}')
+
+        output_dict = {
+            'to': to_depth,
+            'from': from_depth,
+            'translation_label': np.array([[x, y, z, yaw]], dtype='float32')
+        }
+
+        return output_dict
+
+    def __len__(self):
+        return len(self.data_pairs)
+    
+    def _preprocess_depth(self, depth_img_path):
+        """ Normalize depth image and return h x w x 1 numpy array."""
+        depth_img = cv2.imread(depth_img_path)
+        depth_img = depth_img[:,:,2] + 256 * depth_img[:,:,1] + 256 * 256 * depth_img[:,:,0]
+        depth_img = depth_img / (256 * 256 * 256 - 1)
+        
+        # the distribution of depth values was HEAVILY skewed towards the lower end
+        # therfore we will try to improve the distribution
+        
+        # need to test with clip_coefficient = 2
+        clip_coefficient = 4
+
+        depth_img = np.clip(depth_img, 0, 1/clip_coefficient)
+
+        depth_img = depth_img * clip_coefficient
+
+        depth_img = depth_img * 2 - 1
+
+        return np.expand_dims(depth_img, axis=-1)
+        
+class DepthDatasetTrain(DepthDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.data_pairs = self.train_pairs
+
+class DepthDatasetVal(DepthDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.data_pairs = self.val_pairs
+
 if __name__=='__main__':
-    dataset = InstanceDepthDatasetTrain()
-    dataset.dataset_verification()
+    pass
+    # dataset = DepthDatasetBase()
+    # import matplotlib.pyplot as plt
+    # while 1:
+    #     idx = random.randint(0, len(dataset))
 
+    #     yes = dataset[idx]
 
-    # instance_seg = cv2.imread("/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_multi_sensor_test_v1/instance_segmentation_img_0000085.png")
-    # instances = set()
-    # for i in range(256):
-    #     for j in range(256):
-    #         pair = str(instance_seg[i,j,0])+'-'+str(instance_seg[i,j,1])
-    #         instances.add(pair)
+    #     a = yes['from']
+    #     a = a.flatten()
 
-    # print(instances)
-    yes = dataset[0]
-    what = 'yes'
-
+    #     plt.hist(a, bins=np.linspace(-1, 1, 100))
+    #     plt.show()
