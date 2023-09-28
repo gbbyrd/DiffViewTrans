@@ -1297,7 +1297,8 @@ class LatentDiffusion(DDPM):
 
         if ddim:
             ddim_sampler = DDIMSampler(self)
-            shape = (self.channels, self.image_size, self.image_size)
+            # shape = (self.channels, self.image_size, self.image_size) # original
+            shape = tuple(cond.shape[1:]) # grayson modification
             #print(cond.shape)
             #print(shape)
             #print(batch_size)
