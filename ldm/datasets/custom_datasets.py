@@ -1185,16 +1185,16 @@ class DepthDatasetVal(DepthDatasetBase):
         self.data_pairs = self.val_pairs
 
 if __name__=='__main__':
-    pass
-    # dataset = DepthDatasetBase()
-    # import matplotlib.pyplot as plt
-    # while 1:
-    #     idx = random.randint(0, len(dataset))
+    dataset = DepthDatasetBase()
+    print(len(dataset))
+    import matplotlib.pyplot as plt
+    while 1:
+        idx = random.randint(0, len(dataset))
 
-    #     yes = dataset[idx]
+        yes = dataset[idx]
 
-    #     a = yes['from']
-    #     a = a.flatten()
+        a = yes['from']
+        a = a.flatten()
 
-    #     plt.hist(a, bins=np.linspace(-1, 1, 100))
-    #     plt.show()
+        plt.hist(a, bins=np.linspace(-1, 1, 100))
+        plt.show()

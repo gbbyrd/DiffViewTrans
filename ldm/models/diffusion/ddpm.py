@@ -741,7 +741,7 @@ class LatentDiffusion(DDPM):
         # if a translation label is passed extract it, otherwise make the label
         # None
         if self.translation_label:
-            translation_label = batch['location']
+            translation_label = batch['translation_label']
             out.append(translation_label)
         else:
             out.append(None)

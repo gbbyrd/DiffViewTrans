@@ -46,7 +46,7 @@
             "justMyCode": true,
             "args":[
                 // "--base", "configs/latent-diffusion/3d_view_translation_config_depth_rgb.yaml",
-                "--base", "configs/latent-diffusion/3d_view_translation_config_depth_instance.yaml",
+                "--base", "configs/latent-diffusion/3d_view_translation_config_depth.yaml",
                 "-t", "--gpus", "0,"
             ]
         },
