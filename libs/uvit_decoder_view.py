@@ -297,7 +297,6 @@ class UViT(nn.Module):
         return {'pos_embed'}
 
     def forward(self, x, timesteps=None, context=None, translation_label=None, y=None, **kwargs):
-        print(f'x: {x.size()}')
         x = self.patch_embed(x)
         B, L, D = x.shape
         condition = self.condition_embed(context)

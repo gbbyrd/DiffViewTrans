@@ -1184,8 +1184,120 @@ class DepthDatasetVal(DepthDatasetBase):
 
         self.data_pairs = self.val_pairs
 
+class RGBDepthDatasetBase(Dataset):
+    """
+    For datasets with depth information only.
+
+    This dataset takes in a path to the data folder, reads the labels file,
+    and produces a dictionary of normalized numpy arrays in the form:
+    
+    output_dict = {
+        'ground' (np.array): ground_img,
+        'trans' (np.array): trans_img,
+        'location' (np.array): relative location of the ground img from the
+            trans img
+    }
+    """
+
+    def __init__(self, data_folder_path=None, **kwargs):
+        if data_folder_path is None:
+            data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/3d_trans_multi_sensor_v3_large'
+        self.base_data_folder = data_folder_path
+        label_json_file_path = self.base_data_folder+'/labels.json'
+
+        data_pairs = preprocess_data(label_json_file_path,
+                                     type='one_to_many')
+
+        # shuffle and get train and validation sets
+        random.seed(42)
+
+        random.shuffle(data_pairs)
+        
+        split_idx = len(data_pairs) // 5
+        self.train_pairs = data_pairs[split_idx:]
+        self.val_pairs = data_pairs[:split_idx]
+
+        self.data_pairs = data_pairs
+    
+    def __getitem__(self, idx):
+        data_pair = self.data_pairs[idx]
+
+        # depth information
+        from_depth = os.path.join(self.base_data_folder,
+                                  data_pair['from']['depth'])
+        to_depth = os.path.join(self.base_data_folder,
+                                data_pair['to']['depth'])
+        
+        from_depth = self._preprocess_depth(from_depth)
+        to_depth = self._preprocess_depth(to_depth)
+
+        # rgb information
+        from_rgb = cv2.imread(os.path.join(self.base_data_folder,
+                                           data_pair['from']['rgb']))
+        to_rgb = cv2.imread(os.path.join(self.base_data_folder,
+                                         data_pair['to']['rgb']))
+        
+        # normalize the rgb information
+        from_rgb = from_rgb / 127.5 - 1
+        to_rgb = to_rgb / 127.5 - 1
+
+        # get the location
+        x = data_pair['translation_label']['x']
+        y = data_pair['translation_label']['y']
+        z = data_pair['translation_label']['z']
+        yaw = data_pair['translation_label']['yaw']
+
+        # concatenate the depth and rgb information to form a 4-channel image
+        # with the following specs: [B, G, R, Depth] * it is in BGR format because
+        # that is what cv2 reads images as
+        to_rgbd = np.concatenate((to_rgb, to_depth), axis=2)
+        from_rgbd = np.concatenate((from_rgb, from_depth), axis=2)
+
+        output_dict = {
+            'to': to_rgbd,
+            'from': from_rgbd,
+            'translation_label': np.array([[x, y, z, yaw]], dtype='float32')
+        }
+
+        return output_dict
+
+    def __len__(self):
+        return len(self.data_pairs)
+    
+    def _preprocess_depth(self, depth_img_path):
+        """ Normalize depth image and return h x w x 1 numpy array."""
+        depth_img = cv2.imread(depth_img_path)
+        depth_img = depth_img[:,:,2] + 256 * depth_img[:,:,1] + 256 * 256 * depth_img[:,:,0]
+        depth_img = depth_img / (256 * 256 * 256 - 1)
+        
+        # the distribution of depth values was HEAVILY skewed towards the lower end
+        # therfore we will try to improve the distribution
+        
+        # need to test with clip_coefficient = 2
+        clip_coefficient = 4
+
+        depth_img = np.clip(depth_img, 0, 1/clip_coefficient)
+
+        depth_img = depth_img * clip_coefficient
+
+        depth_img = depth_img * 2 - 1
+
+        return np.expand_dims(depth_img, axis=-1)
+        
+class RGBDepthDatasetTrain(RGBDepthDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.data_pairs = self.train_pairs
+
+class RGBDepthDatasetVal(RGBDepthDatasetBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.data_pairs = self.val_pairs
+
 if __name__=='__main__':
-    dataset = DepthDatasetBase()
+    dataset = RGBDepthDatasetBase()
     print(len(dataset))
     import matplotlib.pyplot as plt
     while 1:

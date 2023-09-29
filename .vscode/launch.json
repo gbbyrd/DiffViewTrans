@@ -21,6 +21,7 @@
             "justMyCode": true,
             "args":[
                 // "--base", "configs/autoencoder/custom_vqgan.yaml",
+                // "--base", "configs/autoencoder/vqgan_base_rgb_depth.yaml",
                 "--base", "configs/autoencoder/vqgan_base_depth.yaml",
                 "-t", "--gpus", "0,"
             ]
@@ -88,6 +89,26 @@
                 "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/1D_trans_multi_sensor_v1_val",
                 "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/1d_depth_instance_v1/samples_random_x",
                 "--n_samples", "10"
+            ]
+        },
+        {
+            "name": "Sample Diffusion Model 3D Depth V1",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/diff_epoch_101.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/vqgan_depth_epoch_69.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/3d_view_translation_config_depth.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/samples_test_1_from_image",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/results_1_from_image",
+                "--n_samples", "100"
             ]
         }
     ]
