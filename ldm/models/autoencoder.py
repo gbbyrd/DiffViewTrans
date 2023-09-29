@@ -20,6 +20,7 @@ class VQModel(pl.LightningModule):
                  ckpt_path=None,
                  ignore_keys=[],
                  image_key="image",
+                 image_type="rgb",
                  colorize_nlabels=None,
                  monitor=None,
                  batch_resize_range=None,
@@ -33,6 +34,7 @@ class VQModel(pl.LightningModule):
         self.embed_dim = embed_dim
         self.n_embed = n_embed
         self.image_key = image_key
+        self.image_type = image_type
         self.encoder = Encoder(**ddconfig)
         self.decoder = Decoder(**ddconfig)
         self.loss = instantiate_from_config(lossconfig)
@@ -240,7 +242,7 @@ class VQModel(pl.LightningModule):
             log["inputs"] = x
             return log
         xrec, _ = self(x)
-        if x.shape[1] > 3:
+        if x.shape[1] > 3 and self.image_type != 'rgbdepth':
             # colorize with random projection
             assert xrec.shape[1] > 3
             x = self.to_rgb(x)
@@ -250,12 +252,14 @@ class VQModel(pl.LightningModule):
         if plot_ema:
             with self.ema_scope():
                 xrec_ema, _ = self(x)
-                if x.shape[1] > 3: xrec_ema = self.to_rgb(xrec_ema)
+                if x.shape[1] > 3 and self.image_type != 'rgbdepth': xrec_ema = self.to_rgb(xrec_ema)
                 log["reconstructions_ema"] = xrec_ema
         return log
 
     def to_rgb(self, x):
-        assert self.image_key == "segmentation"
+        assert self.image_key == "segmentation" or self.image_key == "to"
+        if self.image_key == 'to':
+            return x
         if not hasattr(self, "colorize"):
             self.register_buffer("colorize", torch.randn(3, x.shape[1], 1, 1).to(x))
         x = F.conv2d(x, weight=self.colorize)

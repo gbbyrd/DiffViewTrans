@@ -21,8 +21,8 @@
             "justMyCode": true,
             "args":[
                 // "--base", "configs/autoencoder/custom_vqgan.yaml",
-                // "--base", "configs/autoencoder/vqgan_base_rgb_depth.yaml",
-                "--base", "configs/autoencoder/vqgan_base_depth.yaml",
+                "--base", "configs/autoencoder/vqgan_base_rgb_depth.yaml",
+                // "--base", "configs/autoencoder/vqgan_base_depth.yaml",
                 "-t", "--gpus", "0,"
             ]
         },
