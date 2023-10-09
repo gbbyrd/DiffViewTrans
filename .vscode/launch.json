@@ -107,9 +107,51 @@
                 "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/vqgan_depth_epoch_69.ckpt",
                 "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/3d_view_translation_config_depth.yaml",
                 "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
-                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/samples_test_1_from_image",
-                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/results_1_from_image",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/3d_trans_multi_sensor_v3_small_val_completely_unseen_v2",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_v1/results_completely_unseen",
                 "--n_samples", "100"
+            ]
+        },
+        {
+            "name": "Sample Diffusion Model 3D RGB-Depth V1 Large Training Sample Size",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/diff_large_epoch_379.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/vqgan_rgb_depth_epoch_69.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/3d_view_translation_config_rgb_depth.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/3d_trans_multi_sensor_v3_small_val_completely_unseen_v2",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/results_completely_unseen",
+                "--n_samples", "100",
+                "--batch_size", "10"
+            ]
+        },
+        {
+            "name": "Sample Diffusion Model 3D RGB-Depth V1 10000 Training Samples",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_10000_training_samples/diff_10000_training_sample_epoch_239.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/vqgan_rgb_depth_epoch_69.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_10000_training_samples/3d_view_translation_config_rgb_depth.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_10000_training_samples/samples_test",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_10000_training_samples/results",
+                "--n_samples", "100",
+                "--batch_size", "10"
             ]
         }
     ]
