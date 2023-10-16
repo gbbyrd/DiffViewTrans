@@ -280,7 +280,8 @@ def save_carla_sensor_img(image, img_name, base_path):
     cv2.imwrite(full_save_path, i3)
     return i3
 
-def proximity_filter(depth_image):
+def proximity_filter(depth_image,
+                     semantic_map):
     """We do not want to collect data where the 'from' image has large occlusions
     from objects that are directly in front of the camera. Therefore, if any object
     other than a road is within a certain distance from the camera and also fills
@@ -289,7 +290,6 @@ def proximity_filter(depth_image):
     Args:
         depth_image (np.array): depth image in BGR format
     """
-    
     # define the filter thresholds
     min_acceptable_distance = 0.01 # will be empirically optimized
     
@@ -305,7 +305,15 @@ def proximity_filter(depth_image):
     
     # get the number of pixels that are too close
     temp = normalized < min_acceptable_distance
-    num_too_close = np.sum(temp)
+    
+    # we are not worried about whether the road, sidewalk, or road lines are
+    # too close, so we will filter out all of the pixels that are too close that
+    # are a member of these categories
+    road_mult = semantic_map[:, :, 2] != 1
+    sidewalk_mult = semantic_map[:, :, 2] != 2
+    road_lines_mult = semantic_map[:, :, 2] != 24
+    
+    num_too_close = np.sum(temp * road_mult * sidewalk_mult * road_lines_mult)
     
     max_close_pixels = IM_HEIGHT * IM_WIDTH * max_acceptable_occlusion
     
