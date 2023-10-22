@@ -1005,5 +1005,5 @@ if __name__ == "__main__":
     model, global_step = load_model(config, ckpt, gpu, eval_mode)
 
     # run_translation_depth_instance(model, opt)
-    run_translation_depth(model, opt)
-    # run_translation_rgb_depth(model, opt)
+    # run_translation_depth(model, opt)
+    run_translation_rgb_depth(model, opt)

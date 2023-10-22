@@ -42,94 +42,12 @@ import glob
 from tqdm import tqdm
 import argparse
 
-def save_carla_sensor_img(image, img_name, base_path):
-    """Processes a carla sensor.Image object and a velocity int
+from sync_mode import CarlaSyncMode
 
-    Args:
-        image (Carla image object): image object to be post processed
-        img_name (str): name of the image
-        base_path (str): file path to the save folder
-
-    Returns:
-        i3 (numpy array): numpy array of the rgb data of the image
-    """
-    i = np.array(image.raw_data) # the raw data is initially just a 1 x n array
-    i2 = i.reshape((IM_HEIGHT, IM_WIDTH, 4)) # raw data is in rgba format
-    i3 = i2[:, :, :3] # we just want the rgb data
-    
-    # save the image
-    full_save_path = os.path.join(base_path,
-                                    img_name)
-    cv2.imwrite(full_save_path, i3)
-    return i3
-
-def get_carla_sensor_img(image):
-    """Processes a carla sensor.Image object and a velocity int
-
-    Args:
-        image (Carla image object): image object to be post processed
-        img_name (str): name of the image
-        base_path (str): file path to the save folder
-
-    Returns:
-        i3 (numpy array): numpy array of the rgb data of the image
-    """
-    i = np.array(image.raw_data) # the raw data is initially just a 1 x n array
-    i2 = i.reshape((IM_HEIGHT, IM_WIDTH, 4)) # raw data is in rgba format
-    i3 = i2[:, :, :3] # we just want the rgb data
-    
-    # save the image
-    return i3
-
-def proximity_filter(depth_image,
-                     semantic_map):
-    """We do not want to collect data where the 'from' image has large occlusions
-    from objects that are directly in front of the camera. Therefore, if any object
-    other than a road is within a certain distance from the camera and also fills
-    up a threshold of the pixels, we will filter this image out and skip those frames.
-    
-    Args:
-        depth_image (np.array): depth image in BGR format
-    """
-    # define the filter thresholds
-    min_acceptable_distance = 0.01 # will be empirically optimized
-    
-    # the below is the max percentage of the image that can have objects closer
-    # than the specified min acceptable distance
-    max_acceptable_occlusion = 0.1 
-    
-    # get normalized depth image (image is in BGR format) between 0 and 1
-    normalized = ((depth_image[:, :, 2] 
-                  + 256 * depth_image[:, :, 1] 
-                  + 256 * 256 * depth_image[:, :, 0])
-                  / (256 * 256 * 256 - 1))
-    
-    # get the number of pixels that are too close
-    temp = normalized < min_acceptable_distance
-    
-    # we are not worried about whether the road, sidewalk, or road lines are
-    # too close, so we will filter out all of the pixels that are too close that
-    # are a member of these categories
-    road_mult = semantic_map[:, :, 2] != 1
-    sidewalk_mult = semantic_map[:, :, 2] != 2
-    road_lines_mult = semantic_map[:, :, 2] != 24
-    
-    num_too_close = np.sum(temp * road_mult * sidewalk_mult * road_lines_mult)
-    
-    max_close_pixels = IM_HEIGHT * IM_WIDTH * max_acceptable_occlusion
-    
-    if num_too_close > max_close_pixels:
-        return False
-    else:
-        return True
+IM_HEIGHT = 256
+IM_WIDTH = 256
     
 def main():
-    
-    # make life easier..
-    if not os.path.exists(DATASET_PATH):
-        os.makedirs(DATASET_PATH)
-        
-    actor_list = []
 
     try:
         # carla boilerplate variables
@@ -143,28 +61,12 @@ def main():
         # define sensor parameters (fine tune data control)
         ########################################################################
         
-        # define sensor spawning limits
-        
-        # spawn limits for first 3d translation experiments with depth
-        initial_spawn_limits = {
-            'x': [-90, 90],
-            'y': [-75, -55],
-            'z': [3, 6],
-            'roll': [0, 0],
-            'pitch': [0, 0],
-            'yaw': [-180, 180]        
-        }
-        # initial_spawn_limits = {
-        #     'x': [110, 190],
-        #     'y': [100, 280],
-        #     'z': [0.6, 3],
-        #     'roll': [0, 0],
-        #     'pitch': [0, 0],
-        #     'yaw': [-180, 180]        
-        # }
+        # the model was trained to perform translation to distances within 3D
+        # x, y, z, and yaw bounds. define these bounds here so that we can
+        # try to keep the drone within these distance bounds from the vehicle
         
         # how far can an auxiliary sensor spawn from the initial sensor
-        relative_spawn_limits = {
+        translation_distance_bounds = {
             'x': [3, 5],
             'y': [-3, 3],
             'z': [-5.5, 0],
@@ -179,67 +81,21 @@ def main():
             'fov': "90"
         }
         
-        # define what sensors to collect data from at each spawn point
-        num_aux_sensors = 4
+        # define the sensors to spawn for the vehicle and drone
         sensor_types = [
             "sensor.camera.depth",                      # * depth should always be first
-            "sensor.camera.semantic_segmentation",
+            # "sensor.camera.semantic_segmentation",
             # "sensor.camera.instance_segmentation",
             "sensor.camera.rgb"
         ]
         
-        sensor_params = {
-            'num_aux_sensors': num_aux_sensors,
-            'sensor_types': sensor_types,
-            'blueprint_attributes': blueprint_attributes,
-            'initial_spawn_limits': initial_spawn_limits,
-            'relative_spawn_limits': relative_spawn_limits
-        }
-        
         ########################################################################
-        # functionality for adding to existing dataset
+        # start the demo
         ########################################################################
         
-        # search to see if there are any images/labels in the data directory
-        img_files = glob.glob(DATASET_PATH+'\\*.png')
-        
-        # if files were found, do some additional work to add data to the dataset
-        if len(img_files) > 0:
-            # load the labels file
-            with open(DATASET_PATH+'\\labels.json', 'r') as file:
-                prev_data = json.load(file)
-                prev_label_data = prev_data['data']
-                prev_sensor_params = prev_data['sensor_params']
-        
-            # find the count of the final image and set the train_img_count
-            train_img_count = len(img_files) // len(sensor_types)
-            
-            # increase NUM_IMAGES by the initial train_img_count
-            num_images = train_img_count + NUM_IMAGES
-        else:
-            train_img_count = 0
-            prev_label_data = None
-            prev_sensor_params = None
-            num_images = NUM_IMAGES
-        
-        ########################################################################
-        # start the simulation
-        ########################################################################
-        
-        with CarlaSyncMode(world, fps=30, sensor_params=sensor_params) as sync_mode:
+        with CarlaSyncMode(world, fps=30, sensor_types) as sync_mode:
             # ensure that if you add to existing datasets, your dataset parameters
             # are the same
-            if prev_sensor_params:
-                assert prev_sensor_params == sensor_params, "Error: To add to a dataset you must have the same sensor limits."
-            
-            # create variables for storing data
-            labels = dict()
-            sensor_groups = []
-            
-            pbar = tqdm(desc='Generating training images', total=num_images-train_img_count)
-            
-            frame_count = 0
-            sync_mode.randomize_sensors()
             
             # run simulation and collect data
             while train_img_count < num_images:

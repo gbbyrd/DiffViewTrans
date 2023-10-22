@@ -153,6 +153,42 @@
                 "--n_samples", "100",
                 "--batch_size", "10"
             ]
-        }
+        },
+        {
+            "name": "Verify Dataset",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--verify_dataset",
+                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_vt_dataset"
+            ]
+        },
+        {
+            "name": "Collect View Translation Dataset",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--num_frames", "100",
+                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_vt_dataset"
+            ]
+        },
+        {
+            "name": "Collect Behavioral Cloning Dataset",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--num_frames", "100",
+                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_bc_dataset"
+            ]
+        },
     ]
 }
