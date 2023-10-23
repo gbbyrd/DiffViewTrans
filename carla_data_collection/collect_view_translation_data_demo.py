@@ -17,9 +17,13 @@ import argparse
 from math import sqrt
 
 # global variables for quick data collection finetuning
-DATASET_PATH = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town05_diff_trans_v1'
+DATASET_PATH = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_diff_trans_v1'
 NUM_FRAMES = 100
 IM_HEIGHT, IM_WIDTH = 256, 256
+
+# define the x and z locations that the 'to' spawned cameras will spawn at
+RELATIVE_X = 2.5
+RELATIVE_Z = 0.7
 
 class CarlaSyncMode(object):
     """Class for running Carla in synchronous mode. Allows frame rate sync to
@@ -177,9 +181,9 @@ class CarlaSyncMode(object):
         for _ in range(num_aux_sensors):
 
             # generate random relative location
-            x_rel = 2.5
+            x_rel = RELATIVE_X
             y_rel = random.uniform(y_lim_rel[0], y_lim_rel[1])
-            z_rel = 0.7
+            z_rel = RELATIVE_Z
             roll_rel = random.uniform(roll_lim_rel[0], roll_lim_rel[1])
             pitch_rel = random.uniform(pitch_lim_rel[0], pitch_lim_rel[1])
             yaw_rel = random.uniform(yaw_lim_rel[0], yaw_lim_rel[1])
@@ -301,6 +305,7 @@ def main():
         # carla boilerplate variables
         client = carla.Client('127.0.0.1', 2000)
         client.set_timeout(2.0)
+        # world = client.load_world(args.world)
         world = client.get_world()
         blueprint_library = world.get_blueprint_library()
         clock = pygame.time.Clock()
@@ -323,6 +328,8 @@ def main():
         """
 
         # define initial sensor spawning limits relative to the ego vehicle
+
+        # CAREFUL: these limits are from the initial sensor relative to the car 
         initial_spawn_limits = {
             'x': [-5, -3],
             'y': [-2, 2],
@@ -336,10 +343,12 @@ def main():
         # note: the aux sensors will always spawn on the x and z axis at the front of
         # the vehicle, but the y value will vary to ensure that the model learns
         # to use the distance label
+
+        # CAREFUL: these limits are from the auxiliary sensors relative to the initial sensor
         relative_spawn_limits = {
-            'x': None,
+            'x': [-(-3 - RELATIVE_X), -(-5 - RELATIVE_X)],
             'y': [-2, 2],
-            'z': None,
+            'z': [-(3 - RELATIVE_Z), -(5.5 - RELATIVE_Z)],
             'roll': [0, 0],
             'pitch': [0, 0],
             'yaw': [0, 0]
@@ -465,7 +474,7 @@ def main():
                     
                     # save image
                     sensor_type = sensor_types[idx % len(sensor_types)].split('.')[-1]
-                    train_img_name = f'{data_type}_{sensor_type}_{train_img_count}.png'
+                    train_img_name = f'{data_type}_{sensor_type}_{str(train_img_count).zfill(6)}.png'
                     img = save_carla_sensor_img(data,
                                       train_img_name,
                                       args.dataset_path)
@@ -481,6 +490,7 @@ def main():
                     train_img_info = dict()
                     train_img_info['img_name'] = train_img_name
                     train_img_info['location'] = sync_mode.sensor_info[idx]
+                    train_img_info['sensor_type'] = sensor_types[idx % len(sensor_types)].split('.')[-1]
                     sensor_group_data[f'{sensor_type}_img_{train_img_count}_info'] = train_img_info
                     
                     # increment train_img_count every -len(sensor_types)- img saves
@@ -511,8 +521,8 @@ def main():
         time.sleep(1)
         
     finally:
-        # for actor in actor_list:
-        #     actor.destroy()
+        for actor in actor_list:
+            actor.destroy()
         
         # save the labels if there is an error that broke the simulation before
         # completing the data collection
@@ -538,15 +548,23 @@ def verify_dataset():
     2. Every saved image file has a corresponding json labels file img name.
     3. Every collected image from each sensor is sequential with no gaps.
     
+    WARNING: This only works if you collect sensor data from CAMERAS
     """
+
+    # TODO: There is an error in the way the data is collected. Switch the 
+    # sensor type in the img name from 'semantic' to 'semantic_segmentation'
+    dataset_path = args.dataset_path
+
     # get the dataset information
-    with open(DATASET_PATH+'\\labels.json', 'r') as file:
+    with open(dataset_path+'/labels.json', 'r') as file:
         dataset = json.load(file)
         
     sensor_params = dataset['sensor_params']
     data = dataset['data']
     
-    sensor_types = len(sensor_params['sensor_types'])
+    sensor_types = sensor_params['sensor_types']
+    for idx, sensor_type in enumerate(sensor_types):
+        sensor_types[idx] = sensor_type.split('.')[-1]
     
     # get img names in the dataset
     dataset_img_names = set()
@@ -555,107 +573,80 @@ def verify_dataset():
             dataset_img_names.add(group_info[img]['img_name'])
     
     # get all of the saved images
-    saved_img_paths = glob.glob(DATASET_PATH+'\\*.png')
+    saved_img_paths = glob.glob(dataset_path+'/*.png')
     
     for idx, saved_img_path in enumerate(saved_img_paths):
-        saved_img_paths[idx] = saved_img_path.split('\\')[-1]
-        
-    saved_depth_imgs = []
-    saved_rgb_imgs = []
-    saved_semantic_segmentation_imgs = []
+        saved_img_paths[idx] = saved_img_path.split('/')[-1]
+    
+    saved_imgs = dict()
+    for sensor_type in sensor_types:
+        saved_imgs[sensor_type] = []
     
     for saved_img_path in saved_img_paths:
         sensor_type = saved_img_path.split('_')[1]
-        if 'depth' == sensor_type:
-            saved_depth_imgs.append(saved_img_path)
-        elif 'rgb' == sensor_type:
-            saved_rgb_imgs.append(saved_img_path)
-        elif 'semantic' == sensor_type:
-            saved_semantic_segmentation_imgs.append(saved_img_path)
-        else:
-            print('there is an error in your algorithm dummy')
+
+        assert sensor_type in saved_imgs, 'Error: invalid sensor type in img name!'
+
+        saved_imgs[sensor_type].append(saved_img_path)
     
     def get_substr(string):
         return string[-10:-4]
     
-    saved_depth_imgs.sort(key=lambda x: x[-10:-4])
-    saved_rgb_imgs.sort(key=lambda x: x[-10:-4])
-    saved_semantic_segmentation_imgs.sort(key=lambda x: x[-10:-4])
+    for sensor_type in saved_imgs:
+        # TODO: Fix the below hardcoding.. ew
+        saved_imgs[sensor_type].sort(key=lambda x: x[-10:-4])
     
     # verify that every saved image has a corresponding image name in the labels
     # file and that the images are saved in sequential order with no numbers
     # missing
-    if len(dataset_img_names) != len(saved_img_paths):
-        print('Mismatched saved images and labels')
+    assert len(dataset_img_names) == len(saved_img_paths), 'Error: Mismatched saved images and labels!'
     
-    sensor_types = ['depth', 'rgb', 'semantic_segmentation']
-    
+    imgs_not_saved = dict()
+    for sensor_type in sensor_types:
+        imgs_not_saved[sensor_type] = []
+
     depth_imgs_not_saved = []
     rgb_imgs_not_saved = []
     semantic_segmentation_imgs_not_saved = []
     
-    count = 0
-    idx = 0
-    while idx < len(saved_depth_imgs):
-        img_path = saved_depth_imgs[idx]
-        if int(img_path[-10:-4]) == count: 
-            idx += 1
-        else:
-            depth_imgs_not_saved.append(str(count).zfill(6))
-            
-        count += 1
-        
-    count = 0
-    idx = 0
-    while idx < len(saved_rgb_imgs):
-        img_path = saved_rgb_imgs[idx]
-        if int(img_path[-10:-4]) == count: 
-            idx += 1
-        else:
-            depth_imgs_not_saved.append(str(count).zfill(6))
-            
-        count += 1
-        
-    count = 0
-    idx = 0
-    while idx < len(saved_semantic_segmentation_imgs):
-        img_path = saved_semantic_segmentation_imgs[idx]
-        if int(img_path[-10:-4]) == count: 
-            idx += 1
-        else:
-            depth_imgs_not_saved.append(str(count).zfill(6))
-            
-        count += 1
+    for sensor_type in saved_imgs:
+        count = 0
+        idx = 0
+        while idx < len(saved_imgs[sensor_type]):
+            img_path = saved_imgs[sensor_type][idx]
+            if int(img_path[-10:-4]) == count:
+                idx += 1
+            else:
+                imgs_not_saved[sensor_type].append(str(count).zfill(6))
+
+            count += 1
         
     # loop through each saved image and ensure that there is a corresponding label
     # for that image
+    missing_labels = dict()
+    for sensor_type in sensor_types:
+        missing_labels[sensor_type] = []
+
     missing_depth_labels = []
     missing_rgb_labels = []
     missing_semantic_segmentation_labels = []
     
-    for img_name in saved_depth_imgs:
-        if img_name not in dataset_img_names:
-            missing_depth_labels.append(img_name)
-            
-    for img_name in saved_rgb_imgs:
-        if img_name not in dataset_img_names:
-            missing_rgb_labels.append(img_name)
-            
-    for img_name in saved_semantic_segmentation_imgs:
-        if img_name not in dataset_img_names:
-            missing_semantic_segmentation_labels.append(img_name)
-    
-    print(f'skipped depth imgs: {len(depth_imgs_not_saved)}')
-    print(f'skipped rgb imgs: {len(rgb_imgs_not_saved)}')
-    print(f'skipped semantic segmentation imgs: {len(semantic_segmentation_imgs_not_saved)}')
-    
-    print(f'missing depth labels: {len(missing_depth_labels)}')
-    print(f'missing rgb labels: {len(missing_depth_labels)}')
-    print(f'missing semantic segmentation labels: {len(missing_semantic_segmentation_labels)}')
+    for sensor_type in missing_labels:
+        for img_name in saved_imgs[sensor_type]:
+            if img_name not in dataset_img_names:
+                missing_labels[sensor_type].append(img_name)
+
+    for sensor_type in imgs_not_saved:
+        print(f'skipped {sensor_type} imgs: {len(imgs_not_saved[sensor_type])}')
+
+    for sensor_type in missing_labels:
+        print(f'missing {sensor_type} labels: {len(missing_labels[sensor_type])}')
     
 def clean_dataset():
+
+    dataset_path = args.dataset_path
     
-    with open(os.path.join(DATASET_PATH, 'labels.json'), 'r') as file:
+    with open(os.path.join(dataset_path, 'labels.json'), 'r') as file:
         dataset_info = json.load(file)
 
     data = dataset_info['data']
@@ -664,7 +655,7 @@ def clean_dataset():
         for key in dic:
             names_from_json.add(dic[key]['img_name'])
         
-    saved_imgs = glob.glob(DATASET_PATH+'\\*.png')
+    saved_imgs = glob.glob(dataset_path+'\\*.png')
     for idx, img in enumerate(saved_imgs):
         saved_imgs[idx] = img.split('\\')[-1]
         
@@ -674,10 +665,9 @@ def clean_dataset():
 
     for img_name in saved_imgs:
         if img_name not in names_from_json:
-            os.remove(os.path.join(DATASET_PATH, img_name))
+            os.remove(os.path.join(dataset_path, img_name))
             deleted_images.append(img_name)
-        
-        
+         
 if __name__=='__main__':
     
     parser = argparse.ArgumentParser()
@@ -699,6 +689,13 @@ if __name__=='__main__':
         default=DATASET_PATH,
         type=str,
         help='Specify the path to save the dataset')
+    
+    parser.add_argument(
+        '--world',
+        action='store',
+        default='town01',
+        type=str,
+        help='Specify the world to collect data on')
     
     parser.add_argument(
         '--skip_frames',

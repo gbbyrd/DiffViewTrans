@@ -155,6 +155,27 @@
             ]
         },
         {
+            "name": "Sample Diffusion Model 3D RGB-Depth - Base",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_town05/diff_epoch_219.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_town05/vqgan_rgb_depth_epoch_37.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_town05/3d_view_translation_config_rgb_depth.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town05_test_dataset",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_town05/results",
+                "--n_samples", "100",
+                "--batch_size", "10"
+            ]
+        },
+        {
             "name": "Verify Dataset",
             "type": "python",
             "request": "launch",

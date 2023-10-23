@@ -50,7 +50,7 @@ model:
       params:
         embed_dim: 3
         n_embed: 8192
-        # ckpt_path: /home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_depth_instance_v2/vqgan_depth_epoch_69.ckpt
+        ckpt_path: /home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_town05/vqgan_rgb_depth_epoch_37.ckpt
         ddconfig:
           double_z: false
           z_channels: 3

@@ -602,25 +602,42 @@ def normalize_labels_sensor_params(sensor_params, labels):
 
     # normalize all sensor location data
     for idx, label in enumerate(labels):
-        for label_idx, img_name in enumerate(label):
-            for key in label[img_name]['location']:
+        for label_idx, img_info_key in enumerate(label):
+            for key in label[img_info_key]['location']:
                 # TODO: Unhack the below two lines
                 if key == 'sensor_bp':
                     continue
                 if normalize_dict[key]:
+
+                    if 'from' in label[img_info_key]['img_name']:
+                        for location_val in label[img_info_key]['location'].values():
+                            if location_val != 0:
+                                print('error')
+                        # initial_location = label[img_info_key]['location'][key]
+                        continue
+
                     min_lim = sensor_params[key][0]
                     max_lim = sensor_params[key][1]
 
+                    initial_location = label[img_info_key]['location'][key]
+
                     # normalize between 0 and 1
-                    label[img_name]['location'][key] = (label[img_name]['location'][key] - min_lim) / (max_lim-min_lim)
+                    label[img_info_key]['location'][key] = (label[img_info_key]['location'][key] - min_lim) / (max_lim-min_lim)
 
                     # normalize between -1 and 1
-                    label[img_name]['location'][key] = label[img_name]['location'][key] * 2 - 1
+                    label[img_info_key]['location'][key] = label[img_info_key]['location'][key] * 2 - 1
+
+                    # assert label[img_name]['location'][key] >= -1 and label[img_name]['location'][key] <= 1, "Error: Normalized label outside of [-1, 1] range."
+                    if label[img_info_key]['location'][key] >= -1 and label[img_info_key]['location'][key] <= 1:
+                        pass
+                    else:
+                        print(label[img_info_key]['location'][key])
+                    
                 else:
-                    label[img_name]['location'][key] = 0
+                    label[img_info_key]['location'][key] = 0
 
         labels[idx] = label
-    
+
     return labels
 
 class InstanceDepthDatasetBase(Dataset):
@@ -1202,6 +1219,7 @@ class RGBDepthDatasetBase(Dataset):
     def __init__(self, data_folder_path=None, **kwargs):
         if data_folder_path is None:
             data_folder_path = 'data/vehicle_control_dataset_test'
+            data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/vt_town01_dataset'
         self.base_data_folder = data_folder_path
         label_json_file_path = self.base_data_folder+'/labels.json'
 
@@ -1218,6 +1236,40 @@ class RGBDepthDatasetBase(Dataset):
         self.val_pairs = data_pairs[:split_idx]
 
         self.data_pairs = data_pairs
+
+    def verify_dataset(self):
+        min_loc_vals = {
+            'x': 1,
+            'y': 1,
+            'z': 1,
+            'yaw': 1
+        }
+        max_loc_vals = {
+            'x': -1,
+            'y': -1,
+            'z': -1,
+            'yaw': -1
+        }
+
+        outside_range_count = 0
+
+        for data_pair in self.data_pairs:
+
+            for key in data_pair['translation_label']:
+                if data_pair['translation_label'][key] > 1 or data_pair['translation_label'][key] < -1:
+                    outside_range_count += 1
+                min_loc_vals[key] = min(min_loc_vals[key], data_pair['translation_label'][key])
+                max_loc_vals[key] = max(max_loc_vals[key], data_pair['translation_label'][key])
+
+        if outside_range_count:
+            print(f'Error: {outside_range_count} normalized labels outside the acceptable range!')
+        else:
+            print('All labels normalized appropriately.')
+
+        print('Min loc values (should be close to -1 with a large enough dataset)')
+        print(min_loc_vals)
+        print('Max loc values (should be close to 1 with a large enough dataset)')
+        print(max_loc_vals)
     
     def __getitem__(self, idx):
         data_pair = self.data_pairs[idx]
@@ -1271,7 +1323,8 @@ class RGBDepthDatasetBase(Dataset):
         depth_img = depth_img / (256 * 256 * 256 - 1)
         
         # the distribution of depth values was HEAVILY skewed towards the lower end
-        # therfore we will try to improve the distribution
+        # therfore we will try to improve the distribution by clipping between
+        # 0 and a threshold and normalizing based on these
         
         # need to test with clip_coefficient = 2
         clip_coefficient = 4
@@ -1298,15 +1351,16 @@ class RGBDepthDatasetVal(RGBDepthDatasetBase):
 
 if __name__=='__main__':
     dataset = RGBDepthDatasetBase()
-    print(len(dataset))
-    import matplotlib.pyplot as plt
-    while 1:
-        idx = random.randint(0, len(dataset))
+    dataset.verify_dataset()
+    # print(len(dataset))
+    # import matplotlib.pyplot as plt
+    # while 1:
+    #     idx = random.randint(0, len(dataset))
 
-        yes = dataset[idx]
+    #     yes = dataset[idx]
 
-        a = yes['from']
-        a = a.flatten()
+    #     a = yes['from']
+    #     a = a.flatten()
 
-        plt.hist(a, bins=np.linspace(-1, 1, 100))
-        plt.show()
+    #     plt.hist(a, bins=np.linspace(-1, 1, 100))
+    #     plt.show()

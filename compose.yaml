@@ -1,0 +1,33 @@
+version: '3.6'
+
+services:
+  carla:
+    image: carlasim/carla:0.9.10.1
+    # image: carlasim/carla:0.8.4
+    # image: carlagear
+    command: ["bash", "./CarlaUE4.sh", "-opengl4"]
+    # command: ["bash", "./CarlaUE4.sh", "/Game/Maps/Town02"]
+    # command: ["./CarlaUE4.sh", "-carla-server", "-windowed"]
+    runtime: nvidia
+    ports:
+     - "2004-2006:2004-2006"
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - QT_X11_NO_MITSHM=1 # Fix a bug with QT
+      - SDL_VIDEODRIVER=x11
+    user: carla
+    volumes:
+      - ${HOME}/.Xauthority:/root/.Xauthority:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/group:/etc/group:ro
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/shadow:/etc/shadow:ro
+      - /etc/sudoers:/etc/sudoers:ro
+      - /etc/sudoers.d:/etc/sudoers.d:ro
+      - /home/${USER}:/home/${USER}:rw #share your home with write permissions
+    privileged: true
+    network_mode: "host"
+    stdin_open: true
+    tty: true

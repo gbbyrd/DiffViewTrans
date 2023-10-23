@@ -21,14 +21,14 @@ python --version
 
 # set your dataset collection variables
 export WORLD=town01
-export NUM_FRAMES=100
+export NUM_FRAMES=30000
 export DATASET_PATH=/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_vt_dataset
 
 # restart the world,  begin the data collection script
 # this is done because the world tends to crash if you collect too much data in one
 # run of the script. this way, the carla server resets and there is less chance of
 # crashing
-for i in {1..10}
+for i in {1..5}
 do
     python restart_carla_world.py --world=${WORLD} 
     python collect_view_translation_data_demo.py --num_frames=${NUM_FRAMES} --dataset_path=${DATASET_PATH}
