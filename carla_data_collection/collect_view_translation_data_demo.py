@@ -530,50 +530,152 @@ def main():
         print("All cleaned up!")
         
 def verify_dataset():
-    labels_json_path = os.path.join(args.dataset_path,
-                                    'labels.json')
+    """This function is meant to ensure that the above collected dataset adheres
+    to the following rules:
     
-    # load the labels
-    with open(labels_json_path, 'r') as file:
-        data = json.load(file)
-        
-    label_data = data['data']
-    sensor_params = data['sensor_params']
-    sensor_types = sensor_params['sensor_types']
+    1. Every img name in the json labels file has a corresponding saved image in
+    the dataset file path.
+    2. Every saved image file has a corresponding json labels file img name.
+    3. Every collected image from each sensor is sequential with no gaps.
     
-    while 1:
-        idx = random.randint(0, len(label_data))
-        label = label_data[idx]
+    """
+    # get the dataset information
+    with open(DATASET_PATH+'\\labels.json', 'r') as file:
+        dataset = json.load(file)
         
-        # save all sensor names grouped by image location
-        sensor_group_img_names = list()
-        group_names = list()
-        for idx, img_info in enumerate(label.values()):
-            group_names.append(os.path.join(args.dataset_path,
-                                            img_info['img_name']))
-            if (idx + 1) % len(sensor_types) == 0:
-                sensor_group_img_names.append(group_names.copy())
-                group_names.clear()
-                
-        # loop through, read images, concatenate group-wise and then concatenate
-        # each group
-        concatenated_imgs = []
-        for group_idx, group in enumerate(sensor_group_img_names):
-            # create tuple of size len(sensor_types)
-            imgs = []
+    sensor_params = dataset['sensor_params']
+    data = dataset['data']
+    
+    sensor_types = len(sensor_params['sensor_types'])
+    
+    # get img names in the dataset
+    dataset_img_names = set()
+    for group_info in data:
+        for img in group_info:
+            dataset_img_names.add(group_info[img]['img_name'])
+    
+    # get all of the saved images
+    saved_img_paths = glob.glob(DATASET_PATH+'\\*.png')
+    
+    for idx, saved_img_path in enumerate(saved_img_paths):
+        saved_img_paths[idx] = saved_img_path.split('\\')[-1]
+        
+    saved_depth_imgs = []
+    saved_rgb_imgs = []
+    saved_semantic_segmentation_imgs = []
+    
+    for saved_img_path in saved_img_paths:
+        sensor_type = saved_img_path.split('_')[1]
+        if 'depth' == sensor_type:
+            saved_depth_imgs.append(saved_img_path)
+        elif 'rgb' == sensor_type:
+            saved_rgb_imgs.append(saved_img_path)
+        elif 'semantic' == sensor_type:
+            saved_semantic_segmentation_imgs.append(saved_img_path)
+        else:
+            print('there is an error in your algorithm dummy')
+    
+    def get_substr(string):
+        return string[-10:-4]
+    
+    saved_depth_imgs.sort(key=lambda x: x[-10:-4])
+    saved_rgb_imgs.sort(key=lambda x: x[-10:-4])
+    saved_semantic_segmentation_imgs.sort(key=lambda x: x[-10:-4])
+    
+    # verify that every saved image has a corresponding image name in the labels
+    # file and that the images are saved in sequential order with no numbers
+    # missing
+    if len(dataset_img_names) != len(saved_img_paths):
+        print('Mismatched saved images and labels')
+    
+    sensor_types = ['depth', 'rgb', 'semantic_segmentation']
+    
+    depth_imgs_not_saved = []
+    rgb_imgs_not_saved = []
+    semantic_segmentation_imgs_not_saved = []
+    
+    count = 0
+    idx = 0
+    while idx < len(saved_depth_imgs):
+        img_path = saved_depth_imgs[idx]
+        if int(img_path[-10:-4]) == count: 
+            idx += 1
+        else:
+            depth_imgs_not_saved.append(str(count).zfill(6))
             
-            for img_name in group:
-                imgs.append(cv2.imread(img_name))
-                
-            # concatenate images
-            concated_img = np.concatenate(tuple(imgs), axis=1)
-            concatenated_imgs.append(concated_img.copy())
+        count += 1
         
-        # concatenate all imgs and display
-        full_concat = np.concatenate(tuple(concatenated_imgs), axis=0)
+    count = 0
+    idx = 0
+    while idx < len(saved_rgb_imgs):
+        img_path = saved_rgb_imgs[idx]
+        if int(img_path[-10:-4]) == count: 
+            idx += 1
+        else:
+            depth_imgs_not_saved.append(str(count).zfill(6))
+            
+        count += 1
         
-        cv2.imshow('sensor_group_data', full_concat)
-        cv2.waitKey(5000)
+    count = 0
+    idx = 0
+    while idx < len(saved_semantic_segmentation_imgs):
+        img_path = saved_semantic_segmentation_imgs[idx]
+        if int(img_path[-10:-4]) == count: 
+            idx += 1
+        else:
+            depth_imgs_not_saved.append(str(count).zfill(6))
+            
+        count += 1
+        
+    # loop through each saved image and ensure that there is a corresponding label
+    # for that image
+    missing_depth_labels = []
+    missing_rgb_labels = []
+    missing_semantic_segmentation_labels = []
+    
+    for img_name in saved_depth_imgs:
+        if img_name not in dataset_img_names:
+            missing_depth_labels.append(img_name)
+            
+    for img_name in saved_rgb_imgs:
+        if img_name not in dataset_img_names:
+            missing_rgb_labels.append(img_name)
+            
+    for img_name in saved_semantic_segmentation_imgs:
+        if img_name not in dataset_img_names:
+            missing_semantic_segmentation_labels.append(img_name)
+    
+    print(f'skipped depth imgs: {len(depth_imgs_not_saved)}')
+    print(f'skipped rgb imgs: {len(rgb_imgs_not_saved)}')
+    print(f'skipped semantic segmentation imgs: {len(semantic_segmentation_imgs_not_saved)}')
+    
+    print(f'missing depth labels: {len(missing_depth_labels)}')
+    print(f'missing rgb labels: {len(missing_depth_labels)}')
+    print(f'missing semantic segmentation labels: {len(missing_semantic_segmentation_labels)}')
+    
+def clean_dataset():
+    
+    with open(os.path.join(DATASET_PATH, 'labels.json'), 'r') as file:
+        dataset_info = json.load(file)
+
+    data = dataset_info['data']
+    names_from_json = set()
+    for idx, dic in enumerate(data):
+        for key in dic:
+            names_from_json.add(dic[key]['img_name'])
+        
+    saved_imgs = glob.glob(DATASET_PATH+'\\*.png')
+    for idx, img in enumerate(saved_imgs):
+        saved_imgs[idx] = img.split('\\')[-1]
+        
+    saved_imgs.sort()
+
+    deleted_images = []
+
+    for img_name in saved_imgs:
+        if img_name not in names_from_json:
+            os.remove(os.path.join(DATASET_PATH, img_name))
+            deleted_images.append(img_name)
         
         
 if __name__=='__main__':
