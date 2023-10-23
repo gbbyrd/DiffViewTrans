@@ -355,7 +355,7 @@ def main():
         num_aux_sensors = 3
         sensor_types = [
             "sensor.camera.depth",                      # * depth should always be first
-            "sensor.camera.semantic_segmentation",
+            # "sensor.camera.semantic_segmentation",
             # "sensor.camera.instance_segmentation",
             "sensor.camera.rgb"
         ]
