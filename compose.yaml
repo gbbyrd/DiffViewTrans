@@ -10,7 +10,7 @@ services:
     # command: ["./CarlaUE4.sh", "-carla-server", "-windowed"]
     runtime: nvidia
     ports:
-     - "2004-2006:2004-2006"
+     - "2000-2002:2000-2002"
     environment:
       - DISPLAY=${DISPLAY}
       - NVIDIA_VISIBLE_DEVICES=all

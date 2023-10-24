@@ -184,7 +184,7 @@
             "justMyCode": true,
             "args": [
                 "--verify_dataset",
-                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_vt_dataset"
+                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/vt_town01_dataset"
             ]
         },
         {

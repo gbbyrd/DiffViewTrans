@@ -17,7 +17,7 @@ import argparse
 from math import sqrt
 
 # global variables for quick data collection finetuning
-DATASET_PATH = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_diff_trans_v1'
+DATASET_PATH = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/vt_town01_dataset'
 NUM_FRAMES = 100
 IM_HEIGHT, IM_WIDTH = 256, 256
 
@@ -202,12 +202,12 @@ class CarlaSyncMode(object):
                 sensor = self.world.spawn_actor(sensor_bp, spawn_point, attach_to=self.vehicle)
                 self.sensors.append(sensor)
                 
-                # save the relative location to the initial sensor
+                # save the location of the initial sensor relative to the auxiliary sensor
                 relative_location = {
-                    'x': -(x_init - x_rel),
-                    'y': -(y_init - y_rel),
-                    'z': -(z_init - z_rel),
-                    'yaw': -(yaw_init - yaw_rel)
+                    'x': x_init - x_rel,
+                    'y': y_init - y_rel,
+                    'z': z_init - z_rel,
+                    'yaw': yaw_init - yaw_rel
                 }
                 self.sensor_info.append(relative_location)
                 
@@ -344,11 +344,11 @@ def main():
         # the vehicle, but the y value will vary to ensure that the model learns
         # to use the distance label
 
-        # CAREFUL: these limits are from the auxiliary sensors relative to the initial sensor
+        # CAREFUL: these limits are from the initial sensor relative to the auxiliary sensor
         relative_spawn_limits = {
-            'x': [-(-3 - RELATIVE_X), -(-5 - RELATIVE_X)],
+            'x': [-5 - RELATIVE_X, -3 - RELATIVE_X], # this is needed
             'y': [-2, 2],
-            'z': [-(3 - RELATIVE_Z), -(5.5 - RELATIVE_Z)],
+            'z': [3 - RELATIVE_Z, 5.5 - RELATIVE_Z],
             'roll': [0, 0],
             'pitch': [0, 0],
             'yaw': [0, 0]
@@ -526,16 +526,15 @@ def main():
         
         # save the labels if there is an error that broke the simulation before
         # completing the data collection
+        labels['data'] = sensor_groups
+        if prev_label_data:
+            labels['data'] += prev_label_data
+        labels['sensor_params'] = sensor_params
+        
         labels_path = os.path.join(args.dataset_path,
-                                       'labels.json')
-        print(f'saving to {labels_path}')
-        if not os.path.exists(labels_path):
-            print(f'got here')
-            labels['data'] = sensor_groups
-            labels['sensor_params'] = sensor_params
-            
-            with open(labels_path, 'w') as file:
-                json.dump(labels, file)
+                                    'labels.json')
+        with open(labels_path, 'w') as file:
+            json.dump(labels, file)
             
         print("All cleaned up!")
         
@@ -655,9 +654,9 @@ def clean_dataset():
         for key in dic:
             names_from_json.add(dic[key]['img_name'])
         
-    saved_imgs = glob.glob(dataset_path+'\\*.png')
+    saved_imgs = glob.glob(dataset_path+'/*.png')
     for idx, img in enumerate(saved_imgs):
-        saved_imgs[idx] = img.split('\\')[-1]
+        saved_imgs[idx] = img.split('/')[-1]
         
     saved_imgs.sort()
 
@@ -672,9 +671,15 @@ if __name__=='__main__':
     
     parser = argparse.ArgumentParser()
     
-    parser.add_argument("--verify_dataset", 
-                        action='store_true', 
-                        help='Run dataset verification')
+    parser.add_argument(
+        "--verify_dataset", 
+        action='store_true', 
+        help='Run dataset verification')
+    
+    parser.add_argument(
+        "--clean_dataset", 
+        action='store_true', 
+        help='Run dataset cleaning')
     
     parser.add_argument(
         '--num_frames',
@@ -709,6 +714,8 @@ if __name__=='__main__':
     try:
         if args.verify_dataset:
             verify_dataset()
+        elif args.clean_dataset:
+            clean_dataset()
         else:
             main()
         

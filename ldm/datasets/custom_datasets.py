@@ -620,7 +620,7 @@ def normalize_labels_sensor_params(sensor_params, labels):
                     max_lim = sensor_params[key][1]
 
                     initial_location = label[img_info_key]['location'][key]
-
+                    
                     # normalize between 0 and 1
                     label[img_info_key]['location'][key] = (label[img_info_key]['location'][key] - min_lim) / (max_lim-min_lim)
 
@@ -1219,7 +1219,7 @@ class RGBDepthDatasetBase(Dataset):
     def __init__(self, data_folder_path=None, **kwargs):
         if data_folder_path is None:
             data_folder_path = 'data/vehicle_control_dataset_test'
-            data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/vt_town01_dataset'
+            data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_vt_dataset'
         self.base_data_folder = data_folder_path
         label_json_file_path = self.base_data_folder+'/labels.json'
 
