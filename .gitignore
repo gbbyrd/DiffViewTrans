@@ -14,3 +14,4 @@ __pycache__/
 demo/*.ckpt
 demo/*.yaml
 demo/samples/*
+*.mp4

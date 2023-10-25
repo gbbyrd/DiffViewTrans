@@ -211,5 +211,22 @@
                 "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_bc_dataset"
             ]
         },
+        {
+            "name": "Sample View Translation Demo",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/diff_large_epoch_379.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/vqgan_rgb_depth_epoch_69.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/3d_view_translation_config_rgb_depth.yaml",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/view_translation_demo_vid",
+                "--vid_duration", "10",
+                "--fps", "1",
+                "--show"
+            ]
+        },
     ]
 }

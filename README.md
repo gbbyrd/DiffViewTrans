@@ -7,13 +7,32 @@ This repo borrows heavily from the following repos:
 It was created for training and researching diffusion models for the purpose of view translation.
 
 # Environment Setup
+
+**NOTE: You cannot reuse this environment. The environment must be recreated using the below commands every time you clone this repository.**
+
 To set up the conda environment, type the following command after navigating to the base directory of the repository:
 
-```conda env create -f environment.yaml```
+```bash
+conda env create -f environment.yaml
+```
 
 Activate this environment with
 
-```conda activate ldm```
+```bash
+conda activate ldm
+```
+
+# LPIPs Loss Modification
+After you have created the environment, you must add the below code snippet in line 64:
+
+```python
+def forward(self, inp):
+    if inp.size()[1] == 4:                  # add this line
+        inp = inp[:, :3, :, :]              # add this line
+    return (inp - self.shift) / self.scale
+```
+
+This will allow the LPIPs loss to be used with 4 channel images (rgbd images in our case)
 
 # Collecting Data
 
@@ -41,7 +60,9 @@ The main configurations to change are the target specifications for the train da
 
 Once this is set up, run the following command to train the autoencoder:
 
-```python main.py --base configs/autoencoder/<autoencoder.yaml file> -t --gpus 0,1```
+```bash
+python main.py --base configs/autoencoder/<autoencoder.yaml file> -t --gpus 0,
+```
 
 Training information including the checkpoints will be saves in the log directory.
 
@@ -55,7 +76,9 @@ Once you have trained an autoencoder, you can now train your ldm. For this, you 
 
 Once you have configured your .yaml file, you can train your custom latent diffusion model with the following command:
 
-```python main.py --base configs/latent-diffusion/<ldm_config_.yaml_file> -t --gpus 0,1```
+```bash
+python main.py --base configs/latent-diffusion/<ldm_config_.yaml_file> -t --gpus 0,1
+```
 
 Once again, the training information will appear in the log directory.
 
