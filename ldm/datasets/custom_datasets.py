@@ -1218,8 +1218,7 @@ class RGBDepthDatasetBase(Dataset):
 
     def __init__(self, data_folder_path=None, **kwargs):
         if data_folder_path is None:
-            data_folder_path = 'data/vehicle_control_dataset_test'
-            data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_vt_dataset'
+            data_folder_path = 'data/vt_town01_dataset'
         self.base_data_folder = data_folder_path
         label_json_file_path = self.base_data_folder+'/labels.json'
 
