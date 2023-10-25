@@ -15,12 +15,13 @@ from tqdm import tqdm
 import argparse
 from einops import rearrange
 from omegaconf import OmegaConf
+from PIL import Image
 
 from math import sqrt
 from diff_trans_inference_utils import *
 
 # global variables for quick data collection finetuning
-SAVE_PATH = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/default_vid_dave_path'
+SAVE_DIR = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/default_vid_dave_path'
 NUM_FRAMES = 100
 IM_HEIGHT, IM_WIDTH = 256, 256
 
@@ -178,8 +179,8 @@ class CarlaSyncMode(object):
         self.world.apply_settings(self._settings)
         for sensor in self.sensors:
             sensor.destroy()
-        for actor in self.actors:
-            actor.destroy()
+        # for actor in self.actors:
+        #     actor.destroy()
         
     def _retrieve_data(self, sensor_queue, timeout):
         while True:
@@ -316,205 +317,231 @@ def postprocess_translated_latent_img(img):
         
 def main(model, sampler, opt):
 
-    if not os.path.exists(opt.save_path):
-        os.makedirs(opt.save_path)
+    if not os.path.exists(opt.save_dir):
+        os.makedirs(opt.save_dir)
 
-    try:
-        # carla boilerplate variables
-        client = carla.Client('127.0.0.1', 2000)
-        client.set_timeout(2.0)
-        # world = client.load_world(args.world)
-        world = client.get_world()
-        blueprint_library = world.get_blueprint_library()
-        clock = pygame.time.Clock()
+    # carla boilerplate code
+    client = carla.Client('127.0.0.1', 2000)
+    client.set_timeout(2.0)
+    world = client.load_world(opt.world)
+    # world = client.get_world()
+    blueprint_library = world.get_blueprint_library()
+    clock = pygame.time.Clock()
 
-        ########################################################################
-        # create ego vehicle
-        ########################################################################
-        # get vehicle blueprint
-        bp = blueprint_library.filter("model3")[0]
+    ########################################################################
+    # create ego vehicle
+    ########################################################################
+    # get vehicle blueprint
+    bp = blueprint_library.filter("model3")[0]
+    
+    # spawn vehicle
+    # spawn_point1 = random.choice(world.get_map().get_spawn_points()) # get a random spawn point from those in the map
+    spawn_points = world.get_map().get_spawn_points()    
+    spawn_point1 = spawn_points[0]
+    vehicle1 = world.spawn_actor(bp, spawn_point1) # spawn car at the random spawn point
+
+    ########################################################################
+    # define sensor parameters
+    ########################################################################
+
+    # TODO: pass this as a config file
+
+    # define initial sensor spawning limits relative to the ego vehicle
+
+    # CAREFUL: these limits are from the initial sensor relative to the car 
+    initial_spawn_limits = {
+        'x': [-5, -3],
+        'y': [-2, 2],
+        'z': [3, 5.5],
+        'roll': [0, 0],
+        'pitch': [0, 0],
+        'yaw': [0, 0]        
+    }
+    
+    blueprint_attributes = {
+        'image_size_x': f"{IM_HEIGHT}",
+        'image_size_y': F"{IM_WIDTH}",
+        'fov': "90"
+    }
+    
+    # define what sensors to collect data from at each spawn point
+    sensor_types = [
+        "sensor.camera.depth",                      # * depth should always be first
+        # "sensor.camera.semantic_segmentation",
+        # "sensor.camera.instance_segmentation",
+        "sensor.camera.rgb"
+    ]
+    
+    sensor_params = {
+        'sensor_types': sensor_types,
+        'blueprint_attributes': blueprint_attributes,
+        'initial_spawn_limits': initial_spawn_limits,
+    }
+
+    ########################################################################
+    # start the simulation
+    ########################################################################
+    
+    with CarlaSyncMode(world, fps=opt.fps, vehicle=vehicle1, sensor_params=sensor_params) as sync_mode:
         
-        # spawn vehicle
-        # spawn_point1 = random.choice(world.get_map().get_spawn_points()) # get a random spawn point from those in the map
-        spawn_points = world.get_map().get_spawn_points()    
-        spawn_point1 = spawn_points[0]
-        vehicle1 = world.spawn_actor(bp, spawn_point1) # spawn car at the random spawn point
+        # start vehicle autopilot
+        sync_mode.vehicle.set_autopilot(True)
 
-        ########################################################################
-        # define sensor parameters
-        ########################################################################
+        # create variable to hold the information for each frame
+        video_info_json = []
 
-        # TODO: pass this as a config file
-
-        # define initial sensor spawning limits relative to the ego vehicle
-
-        # CAREFUL: these limits are from the initial sensor relative to the car 
-        initial_spawn_limits = {
-            'x': [-5, -3],
-            'y': [-2, 2],
-            'z': [3, 5.5],
-            'roll': [0, 0],
-            'pitch': [0, 0],
-            'yaw': [0, 0]        
-        }
+        num_frames = opt.fps * opt.vid_duration
         
-        blueprint_attributes = {
-            'image_size_x': f"{IM_HEIGHT}",
-            'image_size_y': F"{IM_WIDTH}",
-            'fov': "90"
-        }
-        
-        # define what sensors to collect data from at each spawn point
-        sensor_types = [
-            "sensor.camera.depth",                      # * depth should always be first
-            # "sensor.camera.semantic_segmentation",
-            # "sensor.camera.instance_segmentation",
-            "sensor.camera.rgb"
-        ]
-        
-        sensor_params = {
-            'sensor_types': sensor_types,
-            'blueprint_attributes': blueprint_attributes,
-            'initial_spawn_limits': initial_spawn_limits,
-        }
-
-        ########################################################################
-        # start the simulation
-        ########################################################################
-        
-        with CarlaSyncMode(world, fps=opt.fps, vehicle=vehicle1, sensor_params=sensor_params) as sync_mode:
+        # run simulation and collect data
+        for frame_count in range(num_frames):
             
-            # start vehicle autopilot
-            sync_mode.vehicle.set_autopilot(True)
+            # get frame information
+            clock.tick()
+            world_data  = sync_mode.tick(timeout=2.0)        
+            snapshot = world_data[0]
+            front_sensor_data = world_data[1:3]
+            aerial_sensor_data = world_data[3:]
+            sim_fps = round(1.0 / snapshot.timestamp.delta_seconds)
+            true_fps = clock.get_fps()
 
-            # create variable to hold the information for each frame
-            video_info_json = []
-
-            num_frames = opt.fps * opt.vid_duration
+            frame_info = dict()
             
-            # run simulation and collect data
-            for frame_count in range(num_frames):
+            # collect the front sensor information
+            front_sensor_numpy = dict()
+            for idx in range(len(front_sensor_data)):
+                data = front_sensor_data[idx]
+                sensor_type = sensor_types[idx].split('.')[-1]
+                sensor_location = 'front'
+
+                sensor_save_name = f'{sensor_location}_{sensor_type}_{str(frame_count).zfill(6)}'
+
+                # get img from sensor data and save to save_path directory
+                img = save_carla_sensor_img(data,
+                                            sensor_save_name+'.png',
+                                            opt.save_dir)
                 
-                # get frame information
-                clock.tick()
-                world_data  = sync_mode.tick(timeout=2.0)        
-                snapshot = world_data[0]
-                front_sensor_data = world_data[1:3]
-                aerial_sensor_data = world_data[3:]
-                sim_fps = round(1.0 / snapshot.timestamp.delta_seconds)
-                true_fps = clock.get_fps()
+                front_sensor_numpy[sensor_type] = img
 
-                frame_info = dict()
-                
-                # collect the front sensor information
-                front_sensor_numpy = dict()
-                for idx in range(len(front_sensor_data)):
-                    data = front_sensor_data[idx]
-                    sensor_type = sensor_types[idx].split('.')[-1]
-                    sensor_location = 'front'
-
-                    sensor_save_name = f'{sensor_location}_{sensor_type}_{str(frame_count).zfill(6)}'
-
-                    # get img from sensor data and save to save_path directory
-                    img = save_carla_sensor_img(data,
-                                                sensor_save_name+'.png',
-                                                opt.save_path)
-                    
-                    front_sensor_numpy[sensor_type] = img
-
-                    # add img info to the frame info for the the video.json file
-                    sensor_loc_and_type = f'{sensor_location}_{sensor_type}'
-                    frame_info[sensor_loc_and_type] = sensor_save_name
-                
-                # collect the aerial sensor information
-                aerial_sensor_numpy = dict()
-                for idx in range(len(aerial_sensor_data)):
-                    data = aerial_sensor_data[idx]
-                    sensor_type = sensor_types[idx].split('.')[-1]
-                    sensor_location = 'aerial'
-
-                    sensor_save_name = f'{sensor_location}_{sensor_type}_{str(frame_count).zfill(6)}'
-
-                    # get img from sensor data and save to save_path directory
-                    img = save_carla_sensor_img(data,
-                                                sensor_save_name+'.png',
-                                                opt.save_path)
-                    
-                    aerial_sensor_numpy[sensor_type] = img
-
-                    # add img info to the frame info for the video.json file
-                    sensor_loc_and_type = f'{sensor_location}_{sensor_type}'
-                    frame_info[sensor_loc_and_type] = sensor_save_name
-
-                # get the translaion label of the aerial sensor
-                frame_info['translation_label'] = sync_mode.translation_label
-
-                conditioning, translation_label = preprocess_frame_data(aerial_sensor_numpy['rgb'],
-                                                                        aerial_sensor_numpy['depth'],
-                                                                        translation_label=frame_info['translation_label'],
-                                                                        sensor_params=sensor_params)
-
-                # pass the preprocessed conditioning image (aerial image) through
-                # the trained autoencoder to go to the latent space for the diffusion
-                conditioning = model.get_learned_conditioning(conditioning.to(model.device))
-
-                # get translated, latent space image from the model
-                latent_translated_img, intermediates = sampler.sample(200,
-                                                                      1,
-                                                                      shape=(3,64,64),
-                                                                      conditioning=conditioning,
-                                                                      verbose=False,
-                                                                      translation_label=translation_label,
-                                                                      eta=1.0)
-                
-                normalized_img = model.decode_first_stage(latent_translated_img)
-
-                translated_img_rgbd = postprocess_translated_latent_img(normalized_img)
-                translated_img_rgb = translated_img_rgbd[:, :, :3]
-                translated_img_depth = translated_img_rgbd[:, :, -1]
-
-                # save the translated img
-                translated_img_rgb_name = f'translated_rgb_{str(frame_count).zfill(6)}'
-                translated_img_depth_name = f'translated_depth_{str(frame_count).zfill(6)}'
-                translated_img_rgb_save_path = os.path.join(opt.save_path,
-                                                            translated_img_rgb_name+'.png')
-                translated_img_depth_save_path = os.path.join(opt.save_path,
-                                                              translated_img_depth_name+'.png')
-                cv2.imwrite(translated_img_rgb_save_path, 
-                            translated_img_rgb)
-                cv2.imwrite(translated_img_depth_save_path, 
-                            translated_img_depth)
-
-                frame_info['translated_rgb'] = translated_img_rgb_name
-                frame_info['translated_depth'] = translated_img_depth_name
-
-                video_info_json.append(frame_info)
-        
-                # pick a random location for the aerial sensor
-                sync_mode.randomize_aerial_sensor_location()
-
-                # if specified, show the images in real time during the demo
-                if opt.show:
-                    front_sensor_concat = np.concatenate((front_sensor_numpy['rgb'],
-                                                          front_sensor_numpy['depth']),
-                                                          axis=2)
-                    aerial_sensor_concat = np.concatenate((aerial_sensor_numpy['rgb'],
-                                                           aerial_sensor_numpy['depth']),
-                                                           axis=2)
-                    translated_sensor_concat = np.concatenate((translated_img_rgb,
-                                                               translated_img_depth),
-                                                               axis=2)
-                    full_concat = np.concatenate((front_sensor_concat,
-                                                  translated_sensor_concat,
-                                                  aerial_sensor_concat),
-                                                  axis=1)
-                    
-                    cv2.imshow('front (top) - translated (middle) - aerial (bottom)', full_concat)
-                    cv2.waitKey(0)
-
-    finally:
+                # add img info to the frame info for the the video.json file
+                sensor_loc_and_type = f'{sensor_location}_{sensor_type}'
+                frame_info[sensor_loc_and_type] = sensor_save_name
             
-        print("All cleaned up!")
+            # collect the aerial sensor information
+            aerial_sensor_numpy = dict()
+            for idx in range(len(aerial_sensor_data)):
+                data = aerial_sensor_data[idx]
+                sensor_type = sensor_types[idx].split('.')[-1]
+                sensor_location = 'aerial'
+
+                sensor_save_name = f'{sensor_location}_{sensor_type}_{str(frame_count).zfill(6)}'
+
+                # get img from sensor data and save to save_path directory
+                img = save_carla_sensor_img(data,
+                                            sensor_save_name+'.png',
+                                            opt.save_dir)
+                
+                aerial_sensor_numpy[sensor_type] = img
+
+                # add img info to the frame info for the video.json file
+                sensor_loc_and_type = f'{sensor_location}_{sensor_type}'
+                frame_info[sensor_loc_and_type] = sensor_save_name
+
+            # get the translaion label of the aerial sensor
+            frame_info['translation_label'] = sync_mode.translation_label
+
+            conditioning, translation_label = preprocess_frame_data(aerial_sensor_numpy['rgb'],
+                                                                    aerial_sensor_numpy['depth'],
+                                                                    translation_label=frame_info['translation_label'],
+                                                                    sensor_params=sensor_params)
+
+            # pass the preprocessed conditioning image (aerial image) through
+            # the trained autoencoder to go to the latent space for the diffusion
+            conditioning = model.get_learned_conditioning(conditioning.to(model.device))
+
+            # get translated, latent space image from the model
+            latent_translated_img, intermediates = sampler.sample(200,
+                                                                    1,
+                                                                    shape=(3,64,64),
+                                                                    conditioning=conditioning,
+                                                                    verbose=False,
+                                                                    translation_label=translation_label,
+                                                                    eta=1.0)
+            
+            normalized_img = model.decode_first_stage(latent_translated_img)
+
+            translated_img_rgbd = postprocess_translated_latent_img(normalized_img)
+            translated_img_rgb = translated_img_rgbd[:, :, :3]
+            translated_img_depth = translated_img_rgbd[:, :, -1]
+
+            # save the translated img
+            translated_img_rgb_name = f'translated_rgb_{str(frame_count).zfill(6)}'
+            translated_img_depth_name = f'translated_depth_{str(frame_count).zfill(6)}'
+            translated_img_rgb_save_path = os.path.join(opt.save_dir,
+                                                        translated_img_rgb_name+'.png')
+            translated_img_depth_save_path = os.path.join(opt.save_dir,
+                                                            translated_img_depth_name+'.png')
+            cv2.imwrite(translated_img_rgb_save_path, 
+                        translated_img_rgb)
+            cv2.imwrite(translated_img_depth_save_path, 
+                        translated_img_depth)
+
+            frame_info['translated_rgb'] = translated_img_rgb_name
+            frame_info['translated_depth'] = translated_img_depth_name
+
+            video_info_json.append(frame_info)
+    
+            # pick a random location for the aerial sensor
+            sync_mode.randomize_aerial_sensor_location()
+
+            # if specified, show the images in real time during the demo
+            if opt.show:
+                # convert from BGR image to RGB for pillow compatibility
+                front_rgb_pillow = Image.fromarray(cv2.cvtColor(front_sensor_numpy['rgb'],
+                                                            cv2.COLOR_BGR2RGB))
+                aerial_rgb_pillow = Image.fromarray(cv2.cvtColor(cv2.resize(aerial_sensor_numpy['rgb'], (1024, 1024)),
+                                                            cv2.COLOR_BGR2RGB))
+                translated_rgb_pillow = Image.fromarray(cv2.cvtColor(translated_img_rgb,
+                                                                        cv2.COLOR_BGR2RGB))
+                
+                aerial_rgb_pillow.paste(front_rgb_pillow, (0, 0))
+                aerial_rgb_pillow.paste(translated_rgb_pillow, (front_rgb_pillow.width, 0))
+
+                # convert back to open cv2 to display
+                complete_img = cv2.cvtColor(np.array(aerial_rgb_pillow),
+                                            cv2.COLOR_RGB2BGR)
+                
+                cv2.imshow('demo img', complete_img)
+                cv2.waitKey(500)
+
+                demo_img_save_name = os.path.join(opt.save_dir,
+                                            f'demo_frame_{str(frame_count).zfill(6)}.png')
+
+                cv2.imwrite(demo_img_save_name, complete_img)
+
+        with open(os.path.join(opt.save_dir, 'vid_info.json'), 'w') as file:
+            json.dump(video_info_json, file)
+
+    # finally:
+            
+    #     print("All cleaned up!")
+
+def create_video(opt):
+    demo_imgs = glob.glob(opt.save_dir+'/*demo_frame*')
+    demo_imgs.sort()
+
+    # create video writer
+    video_name = os.path.join('demo_vid.mp4')
+    video = cv2.VideoWriter(video_name,
+                            cv2.VideoWriter_fourcc(*'mp4v'), 
+                            opt.fps,
+                            (1024, 1024))
+
+    for img in demo_imgs:
+        img = cv2.imread(img)
+        video.write(img)
+
+    cv2.destroyAllWindows()
+    video.release()    
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -540,9 +567,9 @@ def get_parser():
         help='Specify the fps at which to record a video')
     
     parser.add_argument(
-        '--save_path',
+        '--save_dir',
         action='store',
-        default=SAVE_PATH,
+        default=SAVE_DIR,
         type=str,
         help='Path to store video information.')
     
@@ -558,89 +585,89 @@ def get_parser():
         action='store_true',
         help='Specify whether you want to show the images while running the demo')
     
-    # default diffusion inference variables
+    # default diffusion inference parameters
     parser.add_argument(
         "--diff_ckpt",
         type=str,
         nargs="?",
         help="diffusion model checkpoint path",
     )
-    parser.add_argument(
-        "--autoencoder_ckpt",
-        type=str,
-        nargs="?",
-        help="autoencoder checkpoint path",
-    )
+    # parser.add_argument(
+    #     "--autoencoder_ckpt",
+    #     type=str,
+    #     nargs="?",
+    #     help="autoencoder checkpoint path",
+    # )
     parser.add_argument(
         "--diff_config",
         type=str,
         nargs="?",
         help="diffusion model config path",
     )
-    parser.add_argument(
-        "--autoencoder_config",
-        type=str,
-        nargs="?",
-        help="autoencoder config path",
-    )
-    parser.add_argument(
-        "--sample_data_folder",
-        type=str,
-        nargs="?",
-        help="specify the folder containing the data to use to sample translation",
-    )
-    parser.add_argument(
-        "--save_dir",
-        type=str,
-        nargs="?",
-        help="specify the folder to save the sampled images to",
-    )
-    parser.add_argument(
-        "-n",
-        "--n_samples",
-        type=int,
-        nargs="?",
-        help="number of samples to draw",
-        default=100
-    )
-    parser.add_argument(
-        "-e",
-        "--eta",
-        type=float,
-        nargs="?",
-        help="eta for ddim sampling (0.0 yields deterministic sampling)",
-        default=1.0
-    )
-    parser.add_argument(
-        "-v",
-        "--vanilla_sample",
-        default=False,
-        action='store_true',
-        help="vanilla sampling (default option is DDIM sampling)?",
-    )
-    parser.add_argument(
-        "-l",
-        "--logdir",
-        type=str,
-        nargs="?",
-        help="extra logdir",
-        default="none"
-    )
-    parser.add_argument(
-        "-c",
-        "--custom_steps",
-        type=int,
-        nargs="?",
-        help="number of steps for ddim and fastdpm sampling",
-        default=50
-    )
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        nargs="?",
-        help="the bs",
-        default=10
-    )
+    # parser.add_argument(
+    #     "--autoencoder_config",
+    #     type=str,
+    #     nargs="?",
+    #     help="autoencoder config path",
+    # )
+    # parser.add_argument(
+    #     "--sample_data_folder",
+    #     type=str,
+    #     nargs="?",
+    #     help="specify the folder containing the data to use to sample translation",
+    # )
+    # parser.add_argument(
+    #     "--save_dir",
+    #     type=str,
+    #     nargs="?",
+    #     help="specify the folder to save the sampled images to",
+    # )
+    # parser.add_argument(
+    #     "-n",
+    #     "--n_samples",
+    #     type=int,
+    #     nargs="?",
+    #     help="number of samples to draw",
+    #     default=100
+    # )
+    # parser.add_argument(
+    #     "-e",
+    #     "--eta",
+    #     type=float,
+    #     nargs="?",
+    #     help="eta for ddim sampling (0.0 yields deterministic sampling)",
+    #     default=1.0
+    # )
+    # parser.add_argument(
+    #     "-v",
+    #     "--vanilla_sample",
+    #     default=False,
+    #     action='store_true',
+    #     help="vanilla sampling (default option is DDIM sampling)?",
+    # )
+    # parser.add_argument(
+    #     "-l",
+    #     "--logdir",
+    #     type=str,
+    #     nargs="?",
+    #     help="extra logdir",
+    #     default="none"
+    # )
+    # parser.add_argument(
+    #     "-c",
+    #     "--custom_steps",
+    #     type=int,
+    #     nargs="?",
+    #     help="number of steps for ddim and fastdpm sampling",
+    #     default=50
+    # )
+    # parser.add_argument(
+    #     "--batch_size",
+    #     type=int,
+    #     nargs="?",
+    #     help="the bs",
+    #     default=10
+    # )
     return parser
          
 if __name__=='__main__':
@@ -658,8 +685,8 @@ if __name__=='__main__':
     gpu = True
     eval_mode = True
 
-    if opt.logdir != "none":
-        logdir = opt.logdir
+    # if opt.logdir != "none":
+    #     logdir = opt.logdir
 
     print(config)
 
@@ -669,5 +696,6 @@ if __name__=='__main__':
 
     try:
         main(model, sampler, opt)
+        create_video(opt)
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
