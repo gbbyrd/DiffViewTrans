@@ -23,7 +23,7 @@ conda activate ldm
 ```
 
 # LPIPs Loss Modification
-After you have created the environment, you must add the below code snippet in line 64:
+After you have created the environment, you must add the below code snippet in line 64 of DiffViewTrans/src/taming-transformers/taming/modules/losses/lpips.py:
 
 ```python
 def forward(self, inp):

@@ -213,9 +213,42 @@
                 // "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
                 "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset",
                 "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/samples",
-                "--n_samples", "100",
+                // "--n_samples", "100",
                 "--batch_size", "10",
-                "--gpus", "0, 1, 2, 3, 4",
+                "--gpus", "0,",
+                "--run_inference",
+                "--experiment_folder_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5",
+                "--start", "1000",
+                "--total", "1000",
+                "--split", "val"
+            ]
+        },
+        {
+            "name": "Benchmark RGBD - Thesis - Visualize",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/diff_epoch_51.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/vqgan_epoch_90_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/3d_view_translation_config_rgb_depth.yaml",
+                // "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/samples",
+                // "--n_samples", "100",
+                "--batch_size", "10",
+                "--gpus", "0,",
+                "--run_inference",
+                "--experiment_folder_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5",
+                "--start", "1000",
+                "--total", "1000",
+                "--split", "val",
+                "--visualize"
             ]
         },
         {

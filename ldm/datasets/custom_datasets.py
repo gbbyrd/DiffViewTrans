@@ -1376,6 +1376,28 @@ class RGBDepthDatasetVal(RGBDepthDatasetBase):
         super().__init__(data_folder_path, **kwargs)
 
         self.data_pairs = self.val_pairs
+        
+class RGBDepthDatasetTrainMultiGPUHack(RGBDepthDatasetBase):
+    def __init__(self, start, total, data_folder_path=None, **kwargs):
+        super().__init__(data_folder_path, **kwargs)
+
+        if start+total > len(self.train_pairs):
+            end = len(self.train_pairs)
+        else:
+            end = start+total
+    
+        self.data_pairs = self.train_pairs[start:end]
+
+class RGBDepthDatasetValMultiGPUHack(RGBDepthDatasetBase):
+    def __init__(self, start, total, data_folder_path=None, **kwargs):
+        super().__init__(data_folder_path, **kwargs)
+
+        if start+total > len(self.val_pairs):
+            end = len(self.val_pairs)
+        else:
+            end = start+total
+
+        self.data_pairs = self.val_pairs[start:end]
 
 if __name__=='__main__':
     dataset = RGBDepthDatasetBase()

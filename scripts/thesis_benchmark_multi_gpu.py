@@ -20,7 +20,7 @@ import random
 from tqdm import tqdm
 
 # dataset imports
-from ldm.datasets.custom_datasets import RGBDepthDatasetVal, RGBDepthDatasetTrain
+from ldm.datasets.custom_datasets import RGBDepthDatasetVal, RGBDepthDatasetTrain, RGBDepthDatasetTrainMultiGPUHack, RGBDepthDatasetValMultiGPUHack
 
 # import functions for testing performance
 from skimage.metrics import structural_similarity as ssim
@@ -359,9 +359,9 @@ def run_translation_rgb_depth_for_benchmark(model, opt, split):
 
     # create dataloader
     if split == 'train':
-        dataset = RGBDepthDatasetTrain(opt.sample_data_folder)
+        dataset = RGBDepthDatasetTrainMultiGPUHack(opt.start, opt.total, opt.sample_data_folder)
     elif split == 'val':
-        dataset = RGBDepthDatasetVal(opt.sample_data_folder)
+        dataset = RGBDepthDatasetValMultiGPUHack(opt.start, opt.total, opt.sample_data_folder)
         
     dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False)
     
@@ -403,10 +403,21 @@ def run_translation_rgb_depth_for_benchmark(model, opt, split):
     model.num_timesteps = 1000
     sampler = DDIMSampler(model)
     
+    # for multi-gpu, get device ids
+    # if opt.gpus is not None:
+    #     gpus = opt.gpus
+    #     if gpus[-1] == ',':
+    #         gpus = gpus[:-1]
+    #     device_ids = [int(gpu_id) for gpu_id in gpus.split(',')]
+    #     sampler.model = nn.DataParallel(sampler.model, device_ids=device_ids)
+        # device = torch.device('cuda:'+gpus)
+        # model.to(device)
+    
+    
+    
     # sample batches from the dataloader and run inference
-    img_count = opt.img_count_start
-    while 1:
-        batch = dataloader[img_count]
+    img_count = opt.start
+    for batch in tqdm(dataloader):
         z, c, x, xrec, xc, translation_label = model.get_input(batch, model.first_stage_key,
                                                            return_first_stage_outputs=True,
                                                            force_c_encode=True,
@@ -466,14 +477,6 @@ def run_translation_rgb_depth_for_benchmark(model, opt, split):
             cv2.imwrite(img_names['translated_depth'], translated_view_depth)
             
             img_count += 1
-            
-            if split == 'val':
-                if img_count >= (opt.img_count_start + 1500):
-                    break
-                
-            if split == 'train':
-                if img_count >= (opt.img_count_start + 6000):
-                    break
 
 def denormalize(img): 
     """ Takes an img normalized between [-1, 1] and denormalizes to between 
@@ -510,6 +513,49 @@ def benchmark(opt, split=None):
         
         # compare the two images
         ssim_results = ssim(ground_truth_img, translated_img)
+        
+def visualize_benchmark(opt):
+    benchmark_path = opt.experiment_folder_path + '/benchmark'
+    
+    # get ground truth images
+    ground_truth_rgb_imgs = glob.glob(os.path.join(benchmark_path,
+                                                  'ground_truth',
+                                                  'rgb',
+                                                  '*.png'))
+    ground_truth_depth_imgs = glob.glob(os.path.join(benchmark_path,
+                                                  'ground_truth',
+                                                  'depth',
+                                                  '*.png'))
+    translated_rgb_imgs = glob.glob(os.path.join(benchmark_path,
+                                                  'translated',
+                                                  'rgb',
+                                                  '*.png'))
+    translated_depth_imgs = glob.glob(os.path.join(benchmark_path,
+                                                  'translated',
+                                                  'depth',
+                                                  '*.png'))
+    
+    ground_truth_depth_imgs.sort()
+    ground_truth_rgb_imgs.sort()
+    translated_rgb_imgs.sort()
+    translated_depth_imgs.sort()
+    
+    for idx in range(len(translated_depth_imgs)):
+        
+        ground_truth_rgb_img = cv2.imread(ground_truth_rgb_imgs[idx])
+        ground_truth_depth_img = cv2.imread(ground_truth_depth_imgs[idx])
+        translated_rgb_img = cv2.imread(translated_rgb_imgs[idx])
+        translated_depth_img = cv2.imread(translated_depth_imgs[idx])
+    
+        concatenated_img = np.concatenate((ground_truth_rgb_img, 
+                                        translated_rgb_img, 
+                                        ground_truth_depth_img, 
+                                        translated_depth_img), axis=1)
+        
+        cv2.imshow('benchmark_imgs', concatenated_img)
+        cv2.waitKey(0)
+    
+    
 
 
 def get_parser():
@@ -620,9 +666,26 @@ def get_parser():
         help="diffusion model checkpoint path",
     )
     parser.add_argument(
-        "--img_count_start",
+        "--start",
         action='store',
         type=int,
+        help="diffusion model checkpoint path",
+    )
+    parser.add_argument(
+        "--total",
+        action='store',
+        type=int,
+        help="diffusion model checkpoint path",
+    )
+    parser.add_argument(
+        "--split",
+        action='store',
+        type=str,
+        help="diffusion model checkpoint path",
+    )
+    parser.add_argument(
+        "--visualize",
+        action='store_true',
         help="diffusion model checkpoint path",
     )
     return parser
@@ -664,6 +727,10 @@ if __name__ == "__main__":
     configs = [OmegaConf.load(cfg) for cfg in opt.base]
     cli = OmegaConf.from_dotlist(unknown)
     config = OmegaConf.merge(*configs, cli)
+    
+    if opt.visualize:
+        visualize_benchmark(opt)
+        exit()
 
     gpu = True
     eval_mode = True
@@ -673,12 +740,13 @@ if __name__ == "__main__":
 
     print(config)
     model, global_step = load_model(config, ckpt, gpu, eval_mode)
+    
+    
 
     # first run translation on all models
     if opt.run_inference:
         # run_translation_rgb_depth(model, opt)
-        # run_translation_rgb_depth_for_benchmark(model, opt, 'train')
-        run_translation_rgb_depth_for_benchmark(model, opt, 'val')
+        run_translation_rgb_depth_for_benchmark(model, opt, opt.split)
         
     if opt.benchmark_performance:
         benchmark(opt)
