@@ -22,8 +22,8 @@ NUM_FRAMES = 100
 IM_HEIGHT, IM_WIDTH = 256, 256
 
 # define the x and z locations that the 'to' spawned cameras will spawn at
-RELATIVE_X = 2.5
-RELATIVE_Z = 0.7
+FRONT_X = 2.5
+FRONT_Z = 0.7
 
 class CarlaSyncMode(object):
     """Class for running Carla in synchronous mode. Allows frame rate sync to
@@ -80,41 +80,8 @@ class CarlaSyncMode(object):
         assert all(x.frame == self.frame for x in data)
         return data
     
-    # def initialize_sensors(self):
-    #     """Create and spawn all sensors at location (0, 0, 0)"""
-        
-    #     num_aux_sensors = self.sensor_params['num_aux_sensors']
-    #     sensor_types = self.sensor_params['sensor_types']
-    #     blueprint_attributes = self.sensor_params['blueprint_attributes']
-    #     initial_spawn_limits = self.sensor_params['initial_spawn_limits']
-    #     relative_spawn_limits = self.sensor_params['relative_spawn_limits']
-        
-    #     # there will be num_aux_sensors + 1 sensor locations (1 for the initial
-    #     # sensor). each sensor location will spawn 1 sensor for every sensor type
-    #     # specified, so the total number of sensors spawned will be:
-    #     #
-    #     # total_num_sensors = (num_aux_sensors + 1) * len(sensor_types)
-    #     for i in range(num_aux_sensors+1):
-    #         for sensor_type in sensor_types:
-    #             # create each sensor
-    #             sensor_bp = self.blueprint_library.find(sensor_type)
-    #             for attribute in blueprint_attributes:
-    #                 sensor_bp.set_attribute(attribute, blueprint_attributes[attribute])
-
-    #             # spawn the sensor at 0,0,0
-    #             spawn_point = carla.Transform(carla.Location(x=0, y=0, z=0),
-    #                                           carla.Rotation(roll=0, pitch=0, yaw=0))
-    #             sensor = self.world.spawn_actor(sensor_bp, spawn_point)
-    #             self.sensors.append(sensor)
-
-    #     # add each sensor to the queue
-    #     for sensor in self.sensors:
-    #         self.make_queue(sensor.listen)
-    
-    def randomize_sensors(self):
-        """Randomize the sensors within the limits specified in 
-        self.sensor_params
-        """
+    def initialize_front_sensors(self):
+        """Create and spawn all sensor types at front location"""
         
         num_aux_sensors = self.sensor_params['num_aux_sensors']
         sensor_types = self.sensor_params['sensor_types']
@@ -122,8 +89,37 @@ class CarlaSyncMode(object):
         initial_spawn_limits = self.sensor_params['initial_spawn_limits']
         relative_spawn_limits = self.sensor_params['relative_spawn_limits']
         
+        for sensor_type in sensor_types:
+            # create each sensor
+            sensor_bp = self.blueprint_library.find(sensor_type)
+            for attribute in blueprint_attributes:
+                sensor_bp.set_attribute(attribute, blueprint_attributes[attribute])
+
+            # spawn the sensor at 0,0,0
+            spawn_point = carla.Transform(carla.Location(x=FRONT_X, y=0, z=FRONT_Z),
+                                            carla.Rotation(roll=0, pitch=0, yaw=0))
+            sensor = self.world.spawn_actor(sensor_bp, spawn_point, attach_to=self.vehicle)
+            self.sensors.append(sensor)
+
+        # # add each sensor to the queue
+        # for sensor in self.sensors:
+        #     self.make_queue(sensor.listen)
+    
+    def randomize_sensors(self):
+        """Randomize the sensors within the limits specified in 
+        self.sensor_params
+        """
+        
+        # need to subtract num_aux_sensors by 1 because we add the ground 
+        # truth front location of the car at every frame
+        num_aux_sensors = self.sensor_params['num_aux_sensors']-1
+        sensor_types = self.sensor_params['sensor_types']
+        blueprint_attributes = self.sensor_params['blueprint_attributes']
+        initial_spawn_limits = self.sensor_params['initial_spawn_limits']
+        relative_spawn_limits = self.sensor_params['relative_spawn_limits']
+        
         # clear sensor information
-        self.sensor_info.clear()
+        self.sensor_info = []
 
         # clear out the rest all sensors
         for sensor in self.sensors:
@@ -174,16 +170,21 @@ class CarlaSyncMode(object):
         pitch_lim_rel = relative_spawn_limits['pitch'].copy()
         yaw_lim_rel = relative_spawn_limits['yaw'].copy()
         
-        y_lim_rel[0] = max(y_init-2, -2)
-        y_lim_rel[1] = min(y_init+2, 2)
+        # bin each sensor spawn to regulate the data distribution
+        bins = []
+        intervals = np.linspace(relative_spawn_limits['y'][0],
+                                relative_spawn_limits['y'][1],
+                                num_aux_sensors+1)
+        for idx in range(len(intervals)-1):
+            bins.append([intervals[idx], intervals[idx+1]])
         
         # create and spawn aux sensors relative to the initial sensor
-        for _ in range(num_aux_sensors):
+        for idx in range(num_aux_sensors):
 
             # generate random relative location
-            x_rel = RELATIVE_X
-            y_rel = random.uniform(y_lim_rel[0], y_lim_rel[1])
-            z_rel = RELATIVE_Z
+            x_rel = FRONT_X
+            y_rel = random.uniform(bins[idx][0], bins[idx][1]) + y_init
+            z_rel = FRONT_Z
             roll_rel = random.uniform(roll_lim_rel[0], roll_lim_rel[1])
             pitch_rel = random.uniform(pitch_lim_rel[0], pitch_lim_rel[1])
             yaw_rel = random.uniform(yaw_lim_rel[0], yaw_lim_rel[1])
@@ -195,7 +196,7 @@ class CarlaSyncMode(object):
                 for attribute in blueprint_attributes:
                     sensor_bp.set_attribute(attribute, blueprint_attributes[attribute])
 
-                spawn_point = carla.Transform(carla.Location(x=x_rel, y=y_rel, z=x_rel),
+                spawn_point = carla.Transform(carla.Location(x=x_rel, y=y_rel, z=z_rel),
                                               carla.Rotation(roll=roll_rel, yaw=yaw_rel, pitch=pitch_rel))
                 
                 # spawn the sensor relative to the first sensor
@@ -210,6 +211,21 @@ class CarlaSyncMode(object):
                     'yaw': yaw_init - yaw_rel
                 }
                 self.sensor_info.append(relative_location)
+                
+        # create the front sensors for the frame
+        self.initialize_front_sensors()
+        
+        # add the relative location for the sensor spawned at the front of the
+        # vehicle
+        front_relative_to_initial = {
+            'x': x_init-FRONT_X,
+            'y': y_init,
+            'z': z_init-FRONT_Z,
+            'yaw': yaw_init
+        }
+        
+        for sensor_type in sensor_types:
+            self.sensor_info.append(front_relative_to_initial)
                 
         # replace the queues
         self._queues = self._queues[:1]
@@ -346,9 +362,9 @@ def main():
 
         # CAREFUL: these limits are from the initial sensor relative to the auxiliary sensor
         relative_spawn_limits = {
-            'x': [-5 - RELATIVE_X, -3 - RELATIVE_X], # this is needed
+            'x': [-5 - FRONT_X, -3 - FRONT_X], # this is needed
             'y': [-2, 2],
-            'z': [3 - RELATIVE_Z, 5.5 - RELATIVE_Z],
+            'z': [3 - FRONT_Z, 5.5 - FRONT_Z],
             'roll': [0, 0],
             'pitch': [0, 0],
             'yaw': [0, 0]
@@ -361,7 +377,7 @@ def main():
         }
         
         # define what sensors to collect data from at each spawn point
-        num_aux_sensors = 3
+        num_aux_sensors = 8
         sensor_types = [
             "sensor.camera.depth",                      # * depth should always be first
             # "sensor.camera.semantic_segmentation",

@@ -18,7 +18,7 @@ import torchvision
 import random
 
 # dataset imports
-from ldm.datasets.custom_datasets import DepthDatasetBase, RGBDepthDatasetBase
+from ldm.datasets.custom_datasets import DepthDatasetBase, RGBDepthDatasetBase, RGBDepthDatasetVal
 
 rescale = lambda x: (x + 1.) / 2.
 
@@ -785,7 +785,7 @@ def run_translation_rgb_depth(model, opt):
     """
 
     # create dataloader
-    dataset = RGBDepthDatasetBase(opt.sample_data_folder) # for depth instance sampling
+    dataset = RGBDepthDatasetVal(opt.sample_data_folder) # for depth instance sampling
     dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False)
 
     if opt.vanilla_sample:

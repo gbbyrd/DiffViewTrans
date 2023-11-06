@@ -176,6 +176,49 @@
             ]
         },
         {
+            "name": "Sample Diffusion Model Thesis V4",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/diff_epoch_41.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/vqgan_epoch_80_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/3d_view_translation_config_rgb_depth.yaml",
+                "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/dataset",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/samples",
+                "--n_samples", "100",
+                "--batch_size", "10"
+            ]
+        },
+        {
+            "name": "Benchmark RGBD - Thesis",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/diff_epoch_51.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/vqgan_epoch_90_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/3d_view_translation_config_rgb_depth.yaml",
+                // "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/samples",
+                "--n_samples", "100",
+                "--batch_size", "10",
+                "--gpus", "0, 1, 2, 3, 4",
+            ]
+        },
+        {
             "name": "Verify Dataset",
             "type": "python",
             "request": "launch",
@@ -184,7 +227,7 @@
             "justMyCode": true,
             "args": [
                 "--verify_dataset",
-                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/vt_town01_dataset"
+                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/dataset"
             ]
         },
         {
@@ -195,8 +238,21 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "--num_frames", "100",
-                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/town01_vt_dataset"
+                "--num_frames", "450",
+                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset"
+            ]
+        },
+        {
+            "name": "Visualize View Translation Dataset",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--num_frames", "450",
+                "--dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset",
+                "--visualize_dataset"
             ]
         },
         {
@@ -212,20 +268,119 @@
             ]
         },
         {
-            "name": "Sample View Translation Demo",
+            "name": "Sample View Translation Demo - V1",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args":[
-                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/diff_large_epoch_379.ckpt",
-                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/vqgan_rgb_depth_epoch_69.ckpt",
-                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/3d_view_translation_config_rgb_depth.yaml",
-                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/view_translation_demo_vid",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v1/diff_epoch_59.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v1/vqgan_rgb_depth_epoch_50.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v1/3d_view_translation_config_rgb_depth.yaml",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v1/video",
                 "--vid_duration", "10",
                 "--fps", "1",
                 "--show"
+            ]
+        },
+        {
+            "name": "Sample View Translation Demo - V2",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/diff_epoch_319.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/vqgan_epoch_69_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/3d_view_translation_config_rgb_depth.yaml",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/video",
+                "--vid_duration", "10",
+                "--fps", "1",
+                "--show",
+                "--spawn_point", "47"
+            ]
+        },
+        {
+            "name": "Sample View Translation Demo - V3",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/diff_epoch_219.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/vqgan_epoch_69_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/3d_view_translation_config_rgb_depth.yaml",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/video",
+                "--vid_duration", "10",
+                "--fps", "1",
+                "--show",
+                "--spawn_point", "64",
+                "--train_dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/dataset",
+                "--trans_label_type", "to"
+            ]
+        },
+        {
+            "name": "Sample View Translation Demo - V4",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/diff_epoch_41.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/vqgan_epoch_80_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/3d_view_translation_config_rgb_depth.yaml",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/video",
+                "--vid_duration", "10",
+                "--fps", "1",
+                "--show",
+                "--spawn_point", "64",
+                "--train_dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v4/dataset",
+                "--trans_label_type", "to"
+            ]
+        },
+        {
+            "name": "Sample View Translation Demo - V5",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/diff_epoch_51.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/vqgan_epoch_90_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/3d_view_translation_config_rgb_depth.yaml",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/video_2",
+                "--vid_duration", "15",
+                "--fps", "20",
+                "--show",
+                "--spawn_point", "64",
+                "--train_dataset_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset",
+                "--trans_label_type", "to"
+            ]
+        },
+        {
+            "name": "Sample Diffusion Model Thesis V5",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/diff_epoch_51.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/vqgan_epoch_90_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/3d_view_translation_config_rgb_depth.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/samples",
+                "--n_samples", "100",
+                "--batch_size", "10",
+                "--run_inference"
             ]
         },
     ]

@@ -1053,7 +1053,8 @@ class InstanceDepthDatasetVal(InstanceDepthDatasetBase):
         self.data_pairs = self.val_pairs
 
 def preprocess_data(labels_json_path: str,
-                    type: str):
+                    type: str,
+                    visualize=False):
     # read label data
         with open(labels_json_path, 'r') as file:
             data = json.load(file)
@@ -1218,12 +1219,14 @@ class RGBDepthDatasetBase(Dataset):
 
     def __init__(self, data_folder_path=None, **kwargs):
         if data_folder_path is None:
-            data_folder_path = 'data/vt_town01_dataset'
+            # data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v2/dataset'
+            data_folder_path = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v3/dataset'
         self.base_data_folder = data_folder_path
         label_json_file_path = self.base_data_folder+'/labels.json'
-
+        self.visualize = kwargs.get('visualize', False)
         data_pairs = preprocess_data(label_json_file_path,
-                                     type='one_to_many')
+                                     type='one_to_many',
+                                     visualize=self.visualize)
 
         # shuffle and get train and validation sets
         random.seed(42)
@@ -1235,6 +1238,32 @@ class RGBDepthDatasetBase(Dataset):
         self.val_pairs = data_pairs[:split_idx]
 
         self.data_pairs = data_pairs
+    
+    def visualize_dataset(self):
+        data_pairs = sorted(self.data_pairs, key = lambda x: x['from']['depth'])
+        idx = 0
+        while True:
+            img_group = []
+            starting_img_name = data_pairs[idx]['from']['depth']
+            while data_pairs[idx]['from']['depth'] == starting_img_name:
+                img_group.append(data_pairs[idx])
+                idx += 1
+                
+            # display the image group
+            img_group = sorted(img_group, key = lambda x: x['translation_label']['y'])
+            for img_group_idx, data_pair in enumerate(img_group):
+                if img_group_idx == 0:
+                    base_img = cv2.imread(os.path.join(self.base_data_folder,
+                                                       data_pair['from']['rgb']))
+                to_img = cv2.imread(os.path.join(self.base_data_folder,
+                                                 data_pair['to']['rgb']))
+                base_img = np.concatenate((base_img, to_img), axis=1)
+                
+                print(data_pair['translation_label']['y'])
+            
+            print('')
+            cv2.imshow('data_pair', base_img)
+            cv2.waitKey(0)
 
     def verify_dataset(self):
         min_loc_vals = {
@@ -1337,20 +1366,21 @@ class RGBDepthDatasetBase(Dataset):
         return np.expand_dims(depth_img, axis=-1)
         
 class RGBDepthDatasetTrain(RGBDepthDatasetBase):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, data_folder_path=None, **kwargs):
+        super().__init__(data_folder_path, **kwargs)
 
         self.data_pairs = self.train_pairs
 
 class RGBDepthDatasetVal(RGBDepthDatasetBase):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, data_folder_path=None, **kwargs):
+        super().__init__(data_folder_path, **kwargs)
 
         self.data_pairs = self.val_pairs
 
 if __name__=='__main__':
     dataset = RGBDepthDatasetBase()
-    dataset.verify_dataset()
+    dataset.visualize_dataset()
+    # dataset.verify_dataset()
     # print(len(dataset))
     # import matplotlib.pyplot as plt
     # while 1:

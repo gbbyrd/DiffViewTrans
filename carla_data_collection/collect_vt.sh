@@ -22,14 +22,15 @@ python --version
 # set your dataset collection variables
 export WORLD=town01
 # export NUM_FRAMES=30000
-export NUM_FRAMES=10000
-export DATASET_PATH=/home/nianyli/Desktop/code/thesis/DiffViewTrans/data/vt_town01_dataset
+# export NUM_FRAMES=10000
+export NUM_FRAMES=100
+export DATASET_PATH=/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v2/dataset
 
 # restart the world,  begin the data collection script
 # this is done because the world tends to crash if you collect too much data in one
 # run of the script. this way, the carla server resets and there is less chance of
 # crashing
-for i in {1..15}
+for i in {1..25}
 do
     # restart a fresh carla world
     python restart_carla_world.py --world=${WORLD}

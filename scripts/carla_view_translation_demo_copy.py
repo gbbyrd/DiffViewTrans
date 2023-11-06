@@ -27,7 +27,7 @@ NUM_FRAMES = 100
 IM_HEIGHT, IM_WIDTH = 256, 256
 
 # define the x and z locations that the 'to' spawned cameras will spawn at
-FRONT_X = 2.5
+FRONT_X = 2.5 + 5
 FRONT_Z = 2.5
 
 class CarlaSyncMode(object):
@@ -398,8 +398,9 @@ def main(model, sampler, opt):
         sensor_params = json.load(file)['sensor_params']
         
     sensor_params['initial_spawn_limits'] = sensor_params['low_sensor_spawn_limits']
-    sensor_types = sensor_params['sensor_types']
+    sensor_params['initial_spawn_limits']['x'] = [2.5, 3]
     
+    sensor_types = sensor_params['sensor_types']
     ########################################################################
     # start the simulation
     ########################################################################
@@ -472,45 +473,6 @@ def main(model, sampler, opt):
             # get the translaion label of the aerial sensor
             frame_info['translation_label'] = sync_mode.translation_label
 
-            conditioning, translation_label = preprocess_frame_data(aerial_sensor_numpy['rgb'],
-                                                                    aerial_sensor_numpy['depth'],
-                                                                    translation_label=frame_info['translation_label'],
-                                                                    sensor_params=sensor_params)
-
-            # pass the preprocessed conditioning image (aerial image) through
-            # the trained autoencoder to go to the latent space for the diffusion
-            conditioning = model.get_learned_conditioning(conditioning.to(model.device))
-
-            # get translated, latent space image from the model
-            latent_translated_img, intermediates = sampler.sample(200,
-                                                                    1,
-                                                                    shape=(3,64,64),
-                                                                    conditioning=conditioning,
-                                                                    verbose=False,
-                                                                    translation_label=translation_label,
-                                                                    eta=1.0)
-            
-            normalized_img = model.decode_first_stage(latent_translated_img)
-
-            translated_img_rgbd = postprocess_translated_latent_img(normalized_img)
-            translated_img_rgb = translated_img_rgbd[:, :, :3]
-            translated_img_depth = translated_img_rgbd[:, :, -1]
-
-            # save the translated img
-            translated_img_rgb_name = f'translated_rgb_{str(frame_count).zfill(6)}'
-            translated_img_depth_name = f'translated_depth_{str(frame_count).zfill(6)}'
-            translated_img_rgb_save_path = os.path.join(opt.save_dir,
-                                                        translated_img_rgb_name+'.png')
-            translated_img_depth_save_path = os.path.join(opt.save_dir,
-                                                            translated_img_depth_name+'.png')
-            cv2.imwrite(translated_img_rgb_save_path, 
-                        translated_img_rgb)
-            cv2.imwrite(translated_img_depth_save_path, 
-                        translated_img_depth)
-
-            frame_info['translated_rgb'] = translated_img_rgb_name
-            frame_info['translated_depth'] = translated_img_depth_name
-
             video_info_json.append(frame_info)
     
             # pick a random location for the aerial sensor
@@ -533,52 +495,77 @@ def main(model, sampler, opt):
             # complete_img = cv2.cvtColor(np.array(aerial_rgb_pillow),
             #                             cv2.COLOR_RGB2BGR)
             
-            full_front = np.concatenate((front_sensor_numpy['rgb'], 
-                                         translated_img_rgb), axis=1)
-            aerial_rgb_pillow = Image.fromarray(cv2.cvtColor(cv2.resize(aerial_sensor_numpy['rgb'], (512, 512)),
-                                                        cv2.COLOR_BGR2RGB))
+            # get translated, latent space image from the model
+            # new_translation_label = translation_label
+            # new_translation_label[0][0][2] = -.99
+            # test, _ = sampler.sample(200,
+            #                          1,
+            #                          shape=(3,64,64),
+            #                          conditioning=conditioning,
+            #                          verbose=False,
+            #                          translation_label=new_translation_label,
+            #                          eta=1.0)
             
-            # create the 3d location of the aerial view
-            fig = plt.figure(figsize=(1, 1))
-            ax = fig.add_subplot(111, projection='3d')
-            x, y, z, yaw = translation_label.squeeze().cpu().numpy()
-            ax.scatter(x, y, z, c='r', s=35)
-            ax.view_init(elev=30, azim=45, roll=0)
-            ax.set_xlim(0, 1)
-            ax.set_xlabel(None)
-            ax.set_ylim(0, 1)
-            ax.set_zlim(0, 1)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_zticks([])
-            location_img_name = os.path.join(opt.save_dir,
-                                             f'location_{str(frame_count).zfill(6)}.png')
-            plt.savefig(location_img_name)
-            
-            # cleanup the plt frames every 10 figures
-            if frame_count % 10 == 0:
-                plt.close('all')
-            
-            translation_label_img = Image.open(location_img_name)
-            
-            # paste the translation label image in the bottom right of the image
-            paste_position = (aerial_rgb_pillow.height - translation_label_img.height - 1,
-                              aerial_rgb_pillow.width - translation_label_img.width - 1)
-            aerial_rgb_pillow.paste(translation_label_img, paste_position)
-            
-            complete_aerial_rgb = np.array(aerial_rgb_pillow)
-            
-            # concatenate the np arrays together
-            complete_img = np.concatenate((full_front, complete_aerial_rgb), axis=0)
-            
-            if opt.show:
-                cv2.imshow('demo img', complete_img)
-                cv2.waitKey(500)
+            # normalized_img_t = model.decode_first_stage(test)
 
-            demo_img_save_name = os.path.join(opt.save_dir,
-                                        f'demo_frame_{str(frame_count).zfill(6)}.png')
+            # translated_img_rgbd_t = postprocess_translated_latent_img(normalized_img_t)
+            # translated_img_rgb_t = translated_img_rgbd_t[:, :, :3]
+            # translated_img_depth_t = translated_img_rgbd_t[:, :, -1]
+            
+            
+            # front_sensor_numpy['rgb'] = translated_img_rgb_t
+            
+            
+            
+            
+            
+            
+            # full_front = np.concatenate((front_sensor_numpy['rgb'], 
+            #                              translated_img_rgb), axis=1)
+            # aerial_rgb_pillow = Image.fromarray(cv2.cvtColor(cv2.resize(aerial_sensor_numpy['rgb'], (512, 512)),
+            #                                             cv2.COLOR_BGR2RGB))
+            
+            # # create the 3d location of the aerial view
+            # fig = plt.figure(figsize=(1, 1))
+            # ax = fig.add_subplot(111, projection='3d')
+            # x, y, z, yaw = translation_label.squeeze().cpu().numpy()
+            # ax.scatter(x, y, z, c='r', s=35)
+            # ax.view_init(elev=30, azim=45, roll=0)
+            # ax.set_xlim(-1, 1)
+            # ax.set_xlabel(None)
+            # ax.set_ylim(-1, 1)
+            # ax.set_zlim(-1, 1)
+            # ax.set_xticks([])
+            # ax.set_yticks([])
+            # ax.set_zticks([])
+            # location_img_name = os.path.join(opt.save_dir,
+            #                                  f'location_{str(frame_count).zfill(6)}.png')
+            # plt.savefig(location_img_name)
+            
+            # # cleanup the plt frames every 10 figures
+            # if frame_count % 10 == 0:
+            #     plt.close('all')
+            
+            # translation_label_img = Image.open(location_img_name)
+            
+            # # paste the translation label image in the bottom right of the image
+            # paste_position = (aerial_rgb_pillow.height - translation_label_img.height - 1,
+            #                   aerial_rgb_pillow.width - translation_label_img.width - 1)
+            # aerial_rgb_pillow.paste(translation_label_img, paste_position)
+            
+            # complete_aerial_rgb = np.array(aerial_rgb_pillow)
+            
+            # # concatenate the np arrays together
+            # complete_img = np.concatenate((full_front, complete_aerial_rgb), axis=0)
+            
+            # if opt.show:
+            #     cv2.imshow('demo img', complete_img)
+            #     cv2.waitKey(500)
 
-            cv2.imwrite(demo_img_save_name, complete_img)
+            # demo_img_save_name = os.path.join(opt.save_dir,
+            #                             f'demo_frame_{str(frame_count).zfill(6)}.png')
+
+            # cv2.imwrite(demo_img_save_name, complete_img)
 
         with open(os.path.join(opt.save_dir, 'vid_info.json'), 'w') as file:
             json.dump(video_info_json, file)
@@ -586,24 +573,164 @@ def main(model, sampler, opt):
     # finally:
             
     #     print("All cleaned up!")
+    
+def get_translated_images(opt, model):
+    
+    # get frame data
+    with open(os.path.join(opt.save_dir,
+                           'vid_info.json'), 'r') as file:
+        frame_data = json.load(file)
+    
+    # get sensor_params data
+    with open(os.path.join(opt.train_dataset_path,
+                           'labels.json'), 'r') as file:
+        sensor_params = json.load(file)['sensor_params']
+    
+    for frame_count, frame_info in enumerate(frame_data):
+        
+        aerial_sensor_numpy = {
+            'rgb': cv2.imread(os.path.join(opt.save_dir,
+                                           frame_info['aerial_rgb']+'.png')),
+            'depth': cv2.imread(os.path.join(opt.save_dir,
+                                             frame_info['aerial_depth']+'.png'))
+        }
+        
+        front_sensor_numpy = {
+            'rgb': cv2.imread(os.path.join(opt.save_dir,
+                                           frame_info['front_rgb']+'.png')),
+            'depth': cv2.imread(os.path.join(opt.save_dir,
+                                             frame_info['front_depth']+'.png'))
+        }
+    
+        conditioning, translation_label = preprocess_frame_data(aerial_sensor_numpy['rgb'],
+                                                                aerial_sensor_numpy['depth'],
+                                                                translation_label=frame_info['translation_label'],
+                                                                sensor_params=sensor_params)
+
+        # pass the preprocessed conditioning image (aerial image) through
+        # the trained autoencoder to go to the latent space for the diffusion
+        conditioning = model.get_learned_conditioning(conditioning.to(model.device))
+
+        # get translated, latent space image from the model
+        latent_translated_img, intermediates = sampler.sample(200,
+                                                                1,
+                                                                shape=(3,64,64),
+                                                                conditioning=conditioning,
+                                                                verbose=False,
+                                                                translation_label=translation_label,
+                                                                eta=1.0)
+        
+        normalized_img = model.decode_first_stage(latent_translated_img)
+
+        translated_img_rgbd = postprocess_translated_latent_img(normalized_img)
+        translated_img_rgb = translated_img_rgbd[:, :, :3]
+        translated_img_depth = translated_img_rgbd[:, :, -1]
+
+        # save the translated img
+        translated_img_rgb_name = f'translated_rgb_{str(frame_count).zfill(6)}'
+        translated_img_depth_name = f'translated_depth_{str(frame_count).zfill(6)}'
+        translated_img_rgb_save_path = os.path.join(opt.save_dir,
+                                                    translated_img_rgb_name+'.png')
+        translated_img_depth_save_path = os.path.join(opt.save_dir,
+                                                        translated_img_depth_name+'.png')
+        cv2.imwrite(translated_img_rgb_save_path, 
+                    translated_img_rgb)
+        cv2.imwrite(translated_img_depth_save_path, 
+                    translated_img_depth)
+
+        frame_info['translated_rgb'] = translated_img_rgb_name
+        frame_info['translated_depth'] = translated_img_depth_name
+        
+        # save the complete image for the video
+                
+        # convert from BGR image to RGB for pillow compatibility
+        front_rgb_pillow = Image.fromarray(cv2.cvtColor(front_sensor_numpy['rgb'],
+                                                    cv2.COLOR_BGR2RGB))
+        aerial_rgb_pillow = Image.fromarray(cv2.cvtColor(cv2.resize(aerial_sensor_numpy['rgb'], (1024, 1024)),
+                                                    cv2.COLOR_BGR2RGB))
+        translated_rgb_pillow = Image.fromarray(cv2.cvtColor(translated_img_rgb,
+                                                                cv2.COLOR_BGR2RGB))
+        
+        aerial_rgb_pillow.paste(front_rgb_pillow, (0, 0))
+        aerial_rgb_pillow.paste(translated_rgb_pillow, (front_rgb_pillow.width, 0))
+        
+        # convert back to open cv2 to display
+        complete_img = cv2.cvtColor(np.array(aerial_rgb_pillow),
+                                    cv2.COLOR_RGB2BGR)
+      
+        full_front = np.concatenate((front_sensor_numpy['rgb'], 
+                                    translated_img_rgb), axis=1)
+        aerial_rgb_pillow = Image.fromarray(cv2.resize(aerial_sensor_numpy['rgb'], (512, 512)))
+        
+        # create the 3d location of the aerial view
+        fig = plt.figure(figsize=(1, 1))
+        ax = fig.add_subplot(111, projection='3d')
+        x, y, z, yaw = translation_label.squeeze().cpu().numpy()
+        ax.scatter(x, y, z, c='r', s=35)
+        ax.view_init(elev=30, azim=45, roll=0)
+        ax.set_xlim(-1, 1)
+        ax.set_xlabel(None)
+        ax.set_ylim(-1, 1)
+        ax.set_zlim(-1, 1)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+        location_img_name = os.path.join(opt.save_dir,
+                                        f'location_{str(frame_count).zfill(6)}.png')
+        plt.savefig(location_img_name)
+        
+        # cleanup the plt frames every 10 figures
+        if frame_count % 10 == 0:
+            plt.close('all')
+        
+        translation_label_img = Image.open(location_img_name)
+        
+        # paste the translation label image in the bottom right of the image
+        paste_position = (aerial_rgb_pillow.height - translation_label_img.height - 1,
+                        aerial_rgb_pillow.width - translation_label_img.width - 1)
+        aerial_rgb_pillow.paste(translation_label_img, paste_position)
+        
+        complete_aerial_rgb = np.array(aerial_rgb_pillow)
+        
+        # concatenate the np arrays together
+        complete_img = np.concatenate((full_front, complete_aerial_rgb), axis=0)
+        
+        if opt.show:
+            cv2.imshow('demo img', complete_img)
+            cv2.waitKey(500)
+
+        demo_img_save_name = os.path.join(opt.save_dir,
+                                    f'demo_frame_{str(frame_count).zfill(6)}.png')
+
+        cv2.imwrite(demo_img_save_name, complete_img)
+    
+    
 
 def create_video(opt):
     demo_imgs = glob.glob(opt.save_dir+'/*demo_frame*')
     demo_imgs.sort()
+    
+    imgs = []
+    for img in demo_imgs:
+        imgs.append(cv2.imread(img))
+    
+    size = list(imgs[0].shape)
+    del size[2]
+    size.reverse()
 
     # create video writer
     video_name = os.path.join('demo_vid.mp4')
+    video_name = '/home/nianyli/Desktop/code/thesis/DiffViewTrans/scripts/demo_vid.mp4'
     video = cv2.VideoWriter(video_name,
                             cv2.VideoWriter_fourcc(*'mp4v'), 
                             opt.fps,
-                            (512+256, 512))
+                            (size[0], size[1]))
 
-    for img in demo_imgs:
-        img = cv2.imread(img)
+    for img in imgs:
         video.write(img)
-
-    cv2.destroyAllWindows()
-    video.release()    
+        
+    video.release()
+    cv2.destroyAllWindows()   
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -778,6 +905,7 @@ if __name__=='__main__':
 
     try:
         main(model, sampler, opt)
+        get_translated_images(opt, model)
         create_video(opt)
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')

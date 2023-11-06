@@ -397,7 +397,7 @@ def main(model, sampler, opt):
     with open(labels_json_path, 'r') as file:
         sensor_params = json.load(file)['sensor_params']
         
-    sensor_params['initial_spawn_limits'] = sensor_params['low_sensor_spawn_limits']
+    sensor_params['initial_spawn_limits'] = sensor_params['initial_spawn_limits']
     sensor_types = sensor_params['sensor_types']
     
     ########################################################################
