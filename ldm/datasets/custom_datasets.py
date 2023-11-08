@@ -600,6 +600,15 @@ def normalize_labels_sensor_params(sensor_params, labels):
         else:
             normalize_dict[key] = True
 
+    error_count = 0
+    
+    initial_locations = {
+        'x': [],
+        'y': [],
+        'z': [],
+        'yaw': []
+    }
+
     # normalize all sensor location data
     for idx, label in enumerate(labels):
         for label_idx, img_info_key in enumerate(label):
@@ -621,6 +630,8 @@ def normalize_labels_sensor_params(sensor_params, labels):
 
                     initial_location = label[img_info_key]['location'][key]
                     
+                    initial_locations[key].append(initial_location)
+                    
                     # normalize between 0 and 1
                     label[img_info_key]['location'][key] = (label[img_info_key]['location'][key] - min_lim) / (max_lim-min_lim)
 
@@ -631,12 +642,30 @@ def normalize_labels_sensor_params(sensor_params, labels):
                     if label[img_info_key]['location'][key] >= -1 and label[img_info_key]['location'][key] <= 1:
                         pass
                     else:
+                        error_count += 1
                         print(label[img_info_key]['location'][key])
                     
                 else:
                     label[img_info_key]['location'][key] = 0
 
         labels[idx] = label
+        
+    # import matplotlib.pyplot as plt
+    
+    # plt.subplot(221)
+    # plt.hist(np.array(initial_locations['x']), bins=np.linspace(-10, 10, 20))
+    # plt.subplot(222)
+    # plt.hist(np.array(initial_locations['y']), bins=np.linspace(-10, 10, 20))
+    # plt.subplot(223)
+    # plt.hist(np.array(initial_locations['z']), bins=np.linspace(-10, 10, 20))
+    # plt.subplot(224)
+    # plt.hist(np.array(initial_locations['yaw']), bins=np.linspace(-10, 10, 20))
+    
+    # plt.show()
+
+    print(f'{error_count} invalid translation labels...')
+    
+    
 
     return labels
 
@@ -1096,7 +1125,22 @@ def preprocess_data(labels_json_path: str,
         else:
             raise NotImplementedError("Need to add many to one functionality.")
         
-        return data_pairs
+        # clean the data pairs if there are pairs with translation labels that spawn
+        # outside of the specific relative spawn limits
+        cleaned_data_pairs = []
+        
+        for data_pair in data_pairs:
+            add = True
+            for value in data_pair['translation_label'].values():
+                if value < -1 or value > 1:
+                    add = False
+                    break
+            if add:
+                cleaned_data_pairs.append(data_pair)
+        
+        print(f'{len(data_pairs) - len(cleaned_data_pairs)} invalid labels removed...')
+        
+        return cleaned_data_pairs
 
 
 class DepthDatasetBase(Dataset):

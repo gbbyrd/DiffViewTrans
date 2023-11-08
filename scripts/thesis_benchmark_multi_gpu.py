@@ -23,6 +23,7 @@ from tqdm import tqdm
 from ldm.datasets.custom_datasets import RGBDepthDatasetVal, RGBDepthDatasetTrain, RGBDepthDatasetTrainMultiGPUHack, RGBDepthDatasetValMultiGPUHack
 
 # import functions for testing performance
+from fid_score.fid_score import FidScore
 from skimage.metrics import structural_similarity as ssim
 
 """_summary_
@@ -368,18 +369,22 @@ def run_translation_rgb_depth_for_benchmark(model, opt, split):
     # create benchmarking dataset folders
     ground_truth_depth_dataset_path = os.path.join(opt.experiment_folder_path,
                                                    'benchmark',
+                                                   split,
                                                    'ground_truth',
                                                    'depth')
     ground_truth_rgb_dataset_path = os.path.join(opt.experiment_folder_path,
                                                    'benchmark',
+                                                   split,
                                                    'ground_truth',
                                                    'rgb')
     translated_depth_dataset_path = os.path.join(opt.experiment_folder_path,
                                                    'benchmark',
+                                                   split,
                                                    'translated',
                                                    'depth')
     translated_rgb_dataset_path = os.path.join(opt.experiment_folder_path,
                                                    'benchmark',
+                                                   split,
                                                    'translated',
                                                    'rgb')
     
@@ -486,33 +491,88 @@ def denormalize(img):
 
     return img
 
-def compute_FID(ground_truth_img, predicted_img):
-    
-    pass
-
-def compute_SSIM(ground_truth_img, predicted_img):
-    pass
-
 def benchmark(opt, split=None):
     
-    img_folder_path = opt.save_directory
-    
-    # get the images to benchmark performance on
-    samples = glob.glob(img_folder_path+'/*.png')
-    
-    samples = samples.sort()
-    
-    for sample in sample:
-        # the sample images are saved as a concatenated image:
-        #   (conditional image, ground truth image, translated image)
-        #   each image is 256 x 256
-
-        concatenated_img = cv2.imread(sample)
-        ground_truth_img = concatenated_img[:, 256:256*2, :]
-        translated_img = concatenated_img[:, 256*2:, :]
+    def get_ssim(paths):
+        """Get the average ssim of a group of imgs.
         
-        # compare the two images
-        ssim_results = ssim(ground_truth_img, translated_img)
+        Args:
+            paths (List): List of len 2 containing the directory paths of the
+                source and target images.
+                
+        Returns:
+            average_ssim (float): the average SSIM value for the dataset.
+        """
+        
+        src_imgs = glob.glob(paths[0]+'/*.png')
+        target_imgs = glob.glob(paths[1]+'/*.png')
+        
+        ssim_sum = 0
+        
+        src_imgs.sort()
+        target_imgs.sort()
+        
+        assert len(src_imgs) == len(target_imgs), "Error: Number of src and target images are not the same."
+        
+        for idx in tqdm(range(len(src_imgs))):
+            
+            # load the images
+            src_img = cv2.imread(src_imgs[idx])
+            target_img = cv2.imread(target_imgs[idx])
+            
+            # convert to grayscale
+            gray_src_img = cv2.cvtColor(src_img, cv2.COLOR_BGR2GRAY)
+            gray_target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
+            
+            ssim_score = ssim(gray_src_img, gray_target_img)
+            
+            ssim_sum += ssim_score
+            
+        # compute the mean ssim score
+        mean_ssim = ssim_sum / len(src_imgs)
+        
+        return mean_ssim
+        
+    # compare the src images to target images
+    train_imgs_path = os.path.join(opt.experiment_folder_path,
+                                    'benchmark',
+                                    'train')
+    val_imgs_path = os.path.join(opt.experiment_folder_path,
+                                    'benchmark',
+                                    'val')
+    # training
+    if split == 'train' or split == None:
+        
+        paths = [os.path.join(train_imgs_path, 'translated', 'rgb'),
+                    os.path.join(train_imgs_path, 'ground_truth', 'rgb')]
+        
+        # get fid score
+        print('Calculating train FID score...')
+        # fid = FidScore(paths, device='cuda', batch_size=10)
+        # train_fid_score = fid.calculate_fid_score()
+        # print(f'Train FID score: {train_fid_score}...')
+        
+        print('Calculating mean train SSIM score...')
+        mean_train_ssim_score = get_ssim(paths)
+        print(f'Mean train SSIM score: {mean_train_ssim_score}...')
+    
+    # validation
+    if split == 'val' or split == None:
+        
+        paths = [os.path.join(val_imgs_path, 'translated', 'rgb'),
+                    os.path.join(val_imgs_path, 'ground_truth', 'rgb')]
+        
+        # get fid score
+        print('Calculating val FID score...')
+        fid = FidScore(paths, device='cuda', batch_size=10)
+        train_fid_score = fid.calculate_fid_score()
+        print(f'Val FID score: {train_fid_score}...')
+        
+        print('Calculating mean val SSIM score...')
+        mean_train_ssim_score = get_ssim(paths)
+        print(f'Mean val SSIM score: {mean_train_ssim_score}...')
+        
+    print('\n\nBENCHMARK COMPLETE!')
         
 def visualize_benchmark(opt):
     benchmark_path = opt.experiment_folder_path + '/benchmark'
@@ -714,6 +774,8 @@ def load_model(config, ckpt, gpu, eval_mode):
 
 
 if __name__ == "__main__":
+    
+        
     now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     sys.path.append(os.getcwd())
     command = " ".join(sys.argv)
@@ -738,14 +800,12 @@ if __name__ == "__main__":
     if opt.logdir != "none":
         logdir = opt.logdir
 
-    print(config)
-    model, global_step = load_model(config, ckpt, gpu, eval_mode)
-    
-    
-
     # first run translation on all models
     if opt.run_inference:
-        # run_translation_rgb_depth(model, opt)
+        
+        print(config)
+        model, global_step = load_model(config, ckpt, gpu, eval_mode)
+    
         run_translation_rgb_depth_for_benchmark(model, opt, opt.split)
         
     if opt.benchmark_performance:
