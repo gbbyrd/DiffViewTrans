@@ -809,4 +809,4 @@ if __name__ == "__main__":
         run_translation_rgb_depth_for_benchmark(model, opt, opt.split)
         
     if opt.benchmark_performance:
-        benchmark(opt)
+        benchmark(opt, opt.split)

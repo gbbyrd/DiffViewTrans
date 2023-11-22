@@ -251,6 +251,87 @@
             ]
         },
         {
+            "name": "Benchmark RGBD - Thesis - Dataset 2 - Benchmark Visuals",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/diff_epoch_51.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/vqgan_epoch_90_finetuned.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/3d_view_translation_config_rgb_depth.yaml",
+                // "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/dataset",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/samples",
+                // "--n_samples", "100",
+                "--batch_size", "1",
+                "--gpus", "0,",
+                "--benchmark_performance",
+                "--experiment_folder_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5",
+                "--start", "1000",
+                "--total", "1000",
+                "--split", "val"
+            ]
+        },
+        {
+            "name": "Benchmark RGBD - Thesis - Dataset 1 - Benchmark Visuals",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/diff_epoch_125.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/vqgan_rgb_depth_epoch_69.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/3d_view_translation_config_rgb_depth.yaml",
+                // "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/dataset",
+                // "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/samples",
+                // "--n_samples", "100",
+                "--batch_size", "1",
+                "--gpus", "0,",
+                "--benchmark_performance",
+                "--experiment_folder_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size",
+                "--start", "1000",
+                "--total", "1000",
+                "--split", "val"
+            ]
+        },
+        {
+            "name": "Benchmark RGBD - Thesis - Dataset 1 - Benchmark Performance",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args":[
+                // "--base", "configs/latent-diffusion/3d_view_translation_config.yaml",
+                // "-t", "--gpus", "0,"
+                "--logdir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/logs/2023-09-10T15-25-07_3d_view_translation_config",
+                "--diff_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/diff_large_epoch_179.ckpt",
+                "--autoencoder_ckpt", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/vqgan_rgb_depth_epoch_69.ckpt",
+                "--diff_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/3d_view_translation_config_rgb_depth.yaml",
+                // "--autoencoder_config", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/configs/autoencoder/vqgan_base_depth_instance.yaml",
+                "--sample_data_folder", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size/dataset",
+                "--save_dir", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/town01_carla_demo_v5/samples",
+                // "--n_samples", "100",
+                "--batch_size", "10",
+                "--gpus", "0,",
+                "--benchmark_performance",
+                "--experiment_folder_path", "/home/nianyli/Desktop/code/thesis/DiffViewTrans/saved_experiments/3d_rgb_depth_large_training_size",
+                "--start", "1000",
+                "--total", "1000",
+                "--split", "val"
+            ]
+        },
+        {
             "name": "Benchmark RGBD - Thesis - Dataset 1 - Inference",
             "type": "python",
             "request": "launch",

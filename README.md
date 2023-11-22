@@ -22,6 +22,12 @@ Activate this environment with
 conda activate ldm
 ```
 
+## Install Older Version of Pillow
+To avoid dependency issues, install an older version of pillow with the following command:
+```bash
+pip install pillow==9.5.0
+```
+
 # LPIPs Loss Modification
 After you have created the environment, you must add the below code snippet in line 64 of DiffViewTrans/src/taming-transformers/taming/modules/losses/lpips.py:
 
